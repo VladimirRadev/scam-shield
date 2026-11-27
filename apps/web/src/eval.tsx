@@ -20,7 +20,7 @@ import {
   type EvalRow,
   type RouteSummary,
 } from '@scamshield/core';
-import { ErrorBoundary, IconChip, IconCloud, IconList, IconMoon, IconSun, ShieldMark, useTheme } from '@scamshield/ui';
+import { ErrorBoundary, IconArrow, IconChip, IconCloud, IconList, ShieldMark } from '@scamshield/ui';
 import '@scamshield/ui/styles.css';
 import './eval.css';
 import { runRoute } from './eval-runner';
@@ -73,7 +73,6 @@ const ms = (x: number | null) => (x === null ? 'n/a' : `${x.toLocaleString('en-U
 const bytes = (n: number) => (n < 1000 ? `${n} B` : `${(n / 1000).toFixed(1)} kB`);
 
 function EvalPage() {
-  const [theme, toggleTheme] = useTheme();
   const [config, setConfig] = useState<AppConfig>(ai.config());
   const [status, setStatus] = useState<OnDeviceStatus | 'checking'>('checking');
   const [download, setDownload] = useState<number | null>(null);
@@ -178,15 +177,15 @@ function EvalPage() {
           <span className="ss-brand-name">Scam Shield</span>
           <span className="ss-brand-tag">model evaluation</span>
         </div>
-        <button type="button" className="ss-icon-btn" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
-          {theme === 'dark' ? <IconSun /> : <IconMoon />}
-        </button>
+        <a className="ss-btn ss-btn-ghost ss-btn-top" href="/">
+          Open the app <IconArrow size={16} />
+        </a>
       </header>
 
       <main className="ev-main">
         <section className="ev-intro">
           <h1>
-            {EXAMPLES.length} labelled messages, <em>one route at a time.</em>
+            {EXAMPLES.length} labelled messages, <span className="ss-grad">one route at a time.</span>
           </h1>
           <p>
             Every example ({EXAMPLES.filter((e) => e.label === 'scam').length} scams, {EXAMPLES.filter((e) => e.label === 'legit').length} legitimate look-alikes) goes

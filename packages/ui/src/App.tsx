@@ -1,15 +1,17 @@
 import { Component, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { addCheckToStats, analyzeLocal, SIGNAL_DEFINITIONS, type CheckResult, type CommunityStats, type Example, type PreparedDeepCheck } from '@scamshield/core';
+import { addCheckToStats, analyzeLocal, EXAMPLES, SIGNAL_DEFINITIONS, type CheckResult, type CommunityStats, type Example, type PreparedDeepCheck } from '@scamshield/core';
 import type { ScamShieldAI } from '@scamshield/ai';
 import { createCheckQueue, type CheckQueue } from './check-queue';
 import { ConsentDialog } from './ConsentDialog';
 import { ExampleChips } from './Examples';
 import { announce, communityLine } from './format';
-import { IconArrow, IconChip, IconCloud, IconList, IconLock, IconMoon, IconSun, ShieldMark } from './icons';
+import { IconArrow, IconChip, IconCloud, IconList, IconLock, ShieldMark } from './icons';
 import { ModelStatusPanel, useModelState } from './ModelStatus';
 import { ResultCard } from './ResultCard';
 import { RiskShield } from './RiskShield';
-import { useTheme } from './theme';
+
+const REPO_URL = 'https://github.com/VladimirRadev/scam-shield';
+const EXTENSION_URL = `${REPO_URL}/releases/latest`;
 
 export interface IncomingText {
   text: string;
@@ -50,22 +52,53 @@ function SetupNotice({ missing }: { missing: string[] }) {
   );
 }
 
+/** Three real numbers from the code, in Jumper-style tiles under the hero. */
+function StatTiles() {
+  const stats = [
+    { num: String(SIGNAL_DEFINITIONS.length), label: 'local scam signals' },
+    { num: '0', label: 'bytes sent on device' },
+    { num: String(EXAMPLES.length), label: 'test messages' },
+  ];
+  return (
+    <ul className="ss-stats" aria-label="Scam Shield in numbers">
+      {stats.map((s) => (
+        <li key={s.label}>
+          <span className="ss-stat-num">{s.num}</span>
+          <span className="ss-stat-label">{s.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function PrivacySteps() {
   return (
-    <ol className="ss-steps" aria-label="How Scam Shield keeps your text private">
-      <li>
-        <span className="ss-step-icon"><IconList size={18} /></span>
-        <span><strong>Instant local checks</strong> {SIGNAL_DEFINITIONS.length} scam signs and personal-data masking, in your browser.</span>
-      </li>
-      <li>
-        <span className="ss-step-icon is-device"><IconChip size={18} /></span>
-        <span><strong>Gemini Nano on your PC</strong> reads the raw text. Nothing is uploaded.</span>
-      </li>
-      <li>
-        <span className="ss-step-icon is-cloud"><IconCloud size={18} /></span>
-        <span><strong>Cloud only when needed</strong> and only a redacted copy: names, numbers and links masked.</span>
-      </li>
-    </ol>
+    <section className="ss-how" aria-labelledby="ss-how-title">
+      <h2 id="ss-how-title">
+        Private <span className="ss-grad">by design</span>
+      </h2>
+      <p className="ss-how-lede">The raw text stays on your PC. The cloud only ever sees a redacted copy.</p>
+      <ol className="ss-steps" aria-label="How Scam Shield keeps your text private">
+        <li>
+          <span className="ss-step-num" aria-hidden>01</span>
+          <span className="ss-step-icon"><IconList size={20} /></span>
+          <h3>Instant local checks</h3>
+          <p>{SIGNAL_DEFINITIONS.length} scam signs and personal-data masking, in your browser.</p>
+        </li>
+        <li>
+          <span className="ss-step-num" aria-hidden>02</span>
+          <span className="ss-step-icon is-device"><IconChip size={20} /></span>
+          <h3>Gemini Nano on your PC</h3>
+          <p>Reads the raw text. Nothing is uploaded.</p>
+        </li>
+        <li>
+          <span className="ss-step-num" aria-hidden>03</span>
+          <span className="ss-step-icon is-cloud"><IconCloud size={20} /></span>
+          <h3>Cloud only when needed</h3>
+          <p>And only a redacted copy: names, numbers and links masked.</p>
+        </li>
+      </ol>
+    </section>
   );
 }
 
@@ -85,21 +118,10 @@ function CommunityLine({ stats }: { stats: CommunityStats | null }) {
   );
 }
 
-function EmptyState() {
-  return (
-    <div className="ss-empty">
-      <RiskShield risk={null} verdict={null} size={112} />
-      <div>
-        <h2>Paste anything that feels off.</h2>
-        <p>A recruiter who wants you to run their repo, a "support agent" asking for your recovery phrase, a parcel fee, an invoice with new bank details.</p>
-        <p className="ss-muted">Tip: press Ctrl + Enter to check.</p>
-      </div>
-    </div>
-  );
-}
+const PLACEHOLDER =
+  'Paste anything that feels off: a recruiter who wants you to run their repo, a "support agent" asking for your recovery phrase, a parcel fee, an invoice with new bank details…';
 
 export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckIncoming = false, actions, notice, onResult, onEdit }: ScamShieldAppProps) {
-  const [theme, toggleTheme] = useTheme();
   const model = useModelState(ai);
   const [text, setText] = useState('');
   const [exampleId, setExampleId] = useState<string | null>(null);
@@ -204,20 +226,35 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
   const signCount = local.signals.length;
   const maskCount = local.redaction.redactions.length;
 
+  const clear = () => {
+    setText('');
+    setResult(null);
+    setExampleId(null);
+    setSource(null);
+    edited();
+  };
+
   const input = (
     <section className="ss-card ss-input" aria-label="Message to check">
       {!panel && <ExampleChips onPick={pick} activeId={exampleId} />}
       <div className="ss-field">
-        <label htmlFor="ss-text" className="ss-label">
-          {source ? <>Checking: <em>{source}</em></> : 'Message, job offer, e-mail or page text'}
-        </label>
+        <div className="ss-field-head">
+          <label htmlFor="ss-text" className="ss-label">
+            {source ? <>Checking: <em>{source}</em></> : 'Message, job offer, e-mail or page text'}
+          </label>
+          {text && (
+            <button type="button" className="ss-clear" onClick={clear}>
+              Clear
+            </button>
+          )}
+        </div>
         <textarea
           id="ss-text"
           className="ss-textarea"
           value={text}
-          placeholder="Paste the message here…"
+          placeholder={PLACEHOLDER}
           spellCheck={false}
-          rows={panel ? 7 : 11}
+          rows={panel ? 6 : 8}
           onChange={(e) => {
             setText(e.target.value);
             setExampleId(null);
@@ -230,15 +267,22 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
             }
           }}
         />
-        <div className="ss-live" aria-live="polite">
-          <IconLock size={14} />
-          {text.trim() ? (
-            <span>
-              Instant local scan: <strong>{signCount}</strong> warning sign{signCount === 1 ? '' : 's'} ·{' '}
-              <strong>{maskCount}</strong> personal detail{maskCount === 1 ? '' : 's'} masked for any cloud use
+        <div className="ss-field-foot">
+          <div className="ss-live" aria-live="polite">
+            <IconLock size={14} />
+            {text.trim() ? (
+              <span>
+                Instant local scan: <strong>{signCount}</strong> warning sign{signCount === 1 ? '' : 's'} ·{' '}
+                <strong>{maskCount}</strong> personal detail{maskCount === 1 ? '' : 's'} masked for any cloud use
+              </span>
+            ) : (
+              <span>Nothing is sent anywhere while you type.</span>
+            )}
+          </div>
+          {!panel && (
+            <span className="ss-kbd-hint">
+              <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to check
             </span>
-          ) : (
-            <span>Nothing is sent anywhere while you type.</span>
           )}
         </div>
       </div>
@@ -249,15 +293,15 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
         </details>
       )}
       <div className="ss-actions">
-        <button type="button" className="ss-btn ss-btn-primary ss-btn-big" onClick={() => check(text)} disabled={!text.trim() || busy}>
+        <button
+          type="button"
+          className={`ss-btn ss-btn-primary ss-btn-big${busy ? ' is-busy' : ''}`}
+          onClick={() => check(text)}
+          disabled={!text.trim() || busy}
+        >
           {busy ? 'Checking…' : 'Check privately'} <IconArrow size={18} />
         </button>
         {actions}
-        {text && (
-          <button type="button" className="ss-btn ss-btn-ghost" onClick={() => { setText(''); setResult(null); setExampleId(null); setSource(null); edited(); }}>
-            Clear
-          </button>
-        )}
       </div>
     </section>
   );
@@ -266,7 +310,7 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
     <div className="ss-output" ref={resultRef}>
       {busy && !result ? (
         <div className="ss-card ss-pending">
-          <RiskShield risk={null} verdict={null} size={panel ? 80 : 112} busy />
+          <RiskShield risk={null} verdict={null} size={panel ? 72 : 96} busy />
           <p>{model.status === 'available' ? 'Gemini Nano is reading the text on this device…' : 'Checking with redacted text…'}</p>
         </div>
       ) : result ? (
@@ -278,9 +322,7 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
           deepBusy={deepBusy}
           onDeepCheck={() => setPrepared(ai.prepareDeep(checkedText))}
         />
-      ) : (
-        !panel && <EmptyState />
-      )}
+      ) : null}
     </div>
   );
 
@@ -293,9 +335,11 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
           <span className="ss-brand-name">Scam Shield</span>
           {!panel && <span className="ss-brand-tag">private by design</span>}
         </div>
-        <button type="button" className="ss-icon-btn" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
-          {theme === 'dark' ? <IconSun /> : <IconMoon />}
-        </button>
+        {!panel && (
+          <a className="ss-btn ss-btn-primary ss-btn-top" href={EXTENSION_URL} target="_blank" rel="noopener noreferrer">
+            Get the extension
+          </a>
+        )}
       </header>
 
       {!ai.configured && <SetupNotice missing={ai.missingConfig} />}
@@ -311,27 +355,32 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
         <main className="ss-web-main">
           <section className="ss-hero">
             <h1>
-              Is it a scam? <em>Ask your own computer.</em>
+              Is it a scam? <span className="ss-grad">Ask your own computer.</span>
             </h1>
             <p className="ss-lede">
-              Scam Shield checks messages, job offers, e-mails and web pages with Gemini Nano running inside Chrome. The raw text stays on your PC.
+              <strong>Gemini Nano inside Chrome</strong> checks messages, job offers, e-mails and web pages. The raw text stays on your PC.
             </p>
-            <PrivacySteps />
+            <StatTiles />
             <CommunityLine stats={community} />
           </section>
-          <div className="ss-grid">
+          <div className="ss-stage">
+            <ModelStatusPanel state={model} />
             {input}
-            <div className="ss-side">
-              <ModelStatusPanel state={model} />
-              {output}
-            </div>
+            {output}
           </div>
+          <PrivacySteps />
         </main>
       )}
 
       <footer className="ss-foot">
         <span>Firebase AI Logic hybrid inference · Gemini Nano on device, Gemini in the cloud as fallback · App Check</span>
-        <span>Open source, Apache-2.0</span>
+        {panel ? (
+          <span>Open source, Apache-2.0</span>
+        ) : (
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+            Open source, Apache-2.0
+          </a>
+        )}
       </footer>
 
       <div className="ss-sr" aria-live="assertive">{live}</div>

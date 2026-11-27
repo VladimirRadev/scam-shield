@@ -1,4 +1,4 @@
-import type { SVGProps } from 'react';
+import { useId, type SVGProps } from 'react';
 
 type P = SVGProps<SVGSVGElement> & { size?: number };
 
@@ -17,14 +17,21 @@ const base = (size = 18): SVGProps<SVGSVGElement> => ({
 
 export const SHIELD_PATH = 'M50 4 L92 18 V54 C92 82 74 102 50 112 C26 102 8 82 8 54 V18 Z';
 
-/** Brand mark: a shield with a keyhole-shaped "local" dot. */
+/** Brand mark: a violet-to-magenta shield with a keyhole-shaped "local" dot. */
 export function ShieldMark({ size = 28, ...rest }: P) {
+  const id = `ss-mark-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   return (
     <svg width={size} height={(size * 116) / 100} viewBox="0 0 100 116" aria-hidden focusable={false} {...rest}>
-      <path d={SHIELD_PATH} fill="var(--brand)" />
-      <path d="M50 16 L80 26 V54 C80 75 67 90 50 98 Z" fill="var(--brand-ink)" opacity="0.18" />
-      <circle cx="50" cy="50" r="11" fill="var(--brand-ink)" />
-      <path d="M45 58 h10 l3 20 h-16 z" fill="var(--brand-ink)" />
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#8a5cf0" />
+          <stop offset="1" stopColor="#d35cff" />
+        </linearGradient>
+      </defs>
+      <path d={SHIELD_PATH} fill={`url(#${id})`} />
+      <path d="M50 16 L80 26 V54 C80 75 67 90 50 98 Z" fill="#fcfaff" opacity="0.16" />
+      <circle cx="50" cy="50" r="11" fill="#fcfaff" />
+      <path d="M45 58 h10 l3 20 h-16 z" fill="#fcfaff" />
     </svg>
   );
 }
@@ -79,19 +86,6 @@ export const IconAlert = ({ size, ...p }: P) => (
   <svg {...base(size)} {...p}>
     <path d="M12 4 2.8 19.5h18.4z" />
     <path d="M12 10v4.2M12 17h.01" />
-  </svg>
-);
-
-export const IconSun = ({ size, ...p }: P) => (
-  <svg {...base(size)} {...p}>
-    <circle cx="12" cy="12" r="4" />
-    <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" />
-  </svg>
-);
-
-export const IconMoon = ({ size, ...p }: P) => (
-  <svg {...base(size)} {...p}>
-    <path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" />
   </svg>
 );
 
