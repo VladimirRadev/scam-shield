@@ -1,0 +1,141 @@
+# Real on-device evidence for Scam Shield: Google Chrome on a GitHub-hosted Windows runner
+# downloads Gemini Nano and scripts/ci/on-device-e2e.mjs drives the app over the DevTools
+# protocol (availability, smoke test, /eval.html device route, screenshots, demo frames).
+name: On-device E2E (Gemini Nano)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: App URL to test
+        type: string
+        default: https://scamshield-hybrid.web.app
+      model:
+        description: On-device model (gemma4 enables the gemma4-for-built-in-ai Chrome flag)
+        type: choice
+        options: [default, gemma4]
+        default: default
+      record_demo:
+        description: Record the scripted demo flow (screencast frames)
+        type: boolean
+        default: true
+      runner:
+        description: Windows runner image
+        type: choice
+        options: [windows-latest, windows-2025, windows-2022]
+        default: windows-latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: on-device-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 150
+    env:
+      TARGET_URL: ${{ inputs.target_url }}
+      MODEL: ${{ inputs.model }}
+      RECORD_DEMO: ${{ inputs.record_demo }}
+      OUT_DIR: ${{ github.workspace }}\e2e-out
+      CDP_BASE: http://127.0.0.1:9222
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Runner facts and profile drive
+        shell: pwsh
+        run: |
+          Get-CimInstance Win32_Processor | Format-List Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed
+          "RAM: {0:N1} GiB" -f ((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
+          Get-CimInstance Win32_VideoController | Format-List Name, AdapterRAM, DriverVersion
+          Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -ne $null } |
+            Format-Table Name, @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}, @{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}}
+          foreach ($k in 'HKLM:\SOFTWARE\Policies\Google\Chrome', 'HKLM:\SOFTWARE\Policies\Google\Update') {
+            if (Test-Path $k) { "Policies in ${k}:"; Get-ItemProperty $k | Format-List }
+          }
+          # Gemini Nano needs about 22 GB free on the profile's volume: D: unless C: has clearly more room.
+          $d = Get-PSDrive D -ErrorAction SilentlyContinue
+          $c = Get-PSDrive C
+          $profileDir = 'D:\chrome-profile'
+          if (-not $d -or ($d.Free -lt 30GB -and $c.Free -gt $d.Free)) { $profileDir = 'C:\chrome-profile' }
+          "Chrome profile: $profileDir"
+          "PROFILE_DIR=$profileDir" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Force $env:OUT_DIR | Out-Null
+
+      - name: Start Google Chrome (headful)
+        shell: pwsh
+        run: |
+          $chrome = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+          if (-not (Test-Path $chrome)) { $chrome = 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe' }
+          "Chrome {0} at {1}" -f (Get-Item $chrome).VersionInfo.ProductVersion, $chrome
+          New-Item -ItemType Directory -Force $env:PROFILE_DIR | Out-Null
+          # Local State before the first start: internal debugging pages on; Gemma 4 flag when asked.
+          $state = if ($env:MODEL -eq 'gemma4') {
+            '{"internal_only_uis_enabled":true,"browser":{"enabled_labs_experiments":["gemma4-for-built-in-ai@1"]}}'
+          } else {
+            '{"internal_only_uis_enabled":true}'
+          }
+          [IO.File]::WriteAllText("$env:PROFILE_DIR\Local State", $state)
+          "Local State: $state"
+          $flags = @(
+            '--remote-debugging-port=9222', "--user-data-dir=$env:PROFILE_DIR",
+            '--no-first-run', '--no-default-browser-check', '--disable-search-engine-choice-screen',
+            '--enable-logging', '--v=1', '--window-size=1366,900', '--window-position=0,0',
+            '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
+            '--disable-background-timer-throttling', '--disable-features=CalculateNativeWinOcclusion',
+            'about:blank'
+          )
+          Start-Process -FilePath $chrome -ArgumentList $flags
+          for ($i = 0; $i -lt 60; $i++) {
+            try { $v = Invoke-RestMethod "$env:CDP_BASE/json/version"; "DevTools: $($v.Browser)"; exit 0 } catch { Start-Sleep 1 }
+          }
+          throw 'Chrome did not open the DevTools port within 60 s'
+
+      - name: Drive the app over CDP
+        run: node scripts/ci/on-device-e2e.mjs
+
+      - name: Collect Chrome logs
+        if: always()
+        shell: pwsh
+        run: |
+          $logs = "$env:OUT_DIR\chrome-logs"
+          New-Item -ItemType Directory -Force $logs | Out-Null
+          if (Test-Path "$env:PROFILE_DIR\chrome_debug.log") { Copy-Item "$env:PROFILE_DIR\chrome_debug.log" $logs }
+          if (Test-Path "$env:PROFILE_DIR\Local State") { Copy-Item "$env:PROFILE_DIR\Local State" "$logs\Local State.json" }
+          if (Test-Path "$env:PROFILE_DIR\Crashpad\reports") { Copy-Item "$env:PROFILE_DIR\Crashpad\reports" "$logs\crashpad" -Recurse }
+          Get-ChildItem $logs -Recurse | Format-Table FullName, Length
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: |
+            e2e-out/
+            !e2e-out/frames/
+            !e2e-out/chrome-logs/
+          if-no-files-found: warn
+
+      - name: Upload Chrome logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-logs
+          path: e2e-out/chrome-logs/
+          if-no-files-found: ignore
+
+      - name: Upload demo frames
+        if: always() && inputs.record_demo
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-frames
+          path: e2e-out/frames/
+          if-no-files-found: ignore
+          compression-level: 0
