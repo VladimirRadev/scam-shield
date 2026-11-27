@@ -4,6 +4,7 @@ import { EXAMPLES } from '../src/examples';
 import { prepareDeepCheck } from '../src/engine';
 import { statsRouteFor } from '../src/stats';
 import type { ModelVerdict } from '../src/types';
+import { INVOICE_REDIRECT } from './fixtures/invoice-redirect';
 
 const PHISH =
   'URGENT: Your account will be suspended within 24 hours. Verify your password at https://secure-paypa1.com/login now. Questions? anna.k@gmail.com or +1 415 555 0132.';
@@ -154,6 +155,23 @@ describe('corroboration rule: the model alone, with no local red flag', () => {
       if (ex.label === 'legit') expect(r.verdict, ex.id).not.toBe('scam');
       else expect(r.verdict, ex.id).toBe('scam');
     }
+  });
+
+  it('the demo invoice-redirection message reaches "scam" with a model at 95: local signs corroborate it', async () => {
+    const answer = JSON.stringify({ risk: 95, verdict: 'scam', category: 'fake-invoice', reasons: [], advice: 'Call the supplier.' });
+    const r = await runQuickCheck(INVOICE_REDIRECT, { onDeviceAvailable: true, generate: async () => ({ text: answer, source: 'on-device' as const }), now });
+    expect(r.backend).toBe('on-device');
+    expect(r.modelCapped).toBeNull();
+    expect(r.verdict).toBe('scam');
+    expect(r.risk).toBeGreaterThanOrEqual(DEFAULT_THRESHOLDS.scam);
+    expect(r.category).toBe('fake-invoice');
+  });
+
+  it('the demo invoice-redirection message is at least "suspicious" on the local signs alone', async () => {
+    const r = await runQuickCheck(INVOICE_REDIRECT, { onDeviceAvailable: false, generate: async () => Promise.reject(new Error('offline')), now });
+    expect(r.backend).toBe('heuristics-only');
+    expect(r.verdict).not.toBe('safe');
+    expect(r.category).toBe('fake-invoice');
   });
 
   it('a model that rates everything 80 makes no legitimate example suspicious', async () => {

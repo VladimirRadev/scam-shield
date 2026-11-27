@@ -14,8 +14,12 @@ export interface SignalDefinition {
   category: Category;
   explanation: string;
   patterns?: RegExp[];
-  /** Skip a match when "never / don't / not" appears just before it in the same sentence. */
-  negatable?: boolean;
+  /**
+   * Skip a match when "never / don't / not" appears just before it: `true` looks back in the same
+   * sentence, `'clause'` only in the same clause (back to a comma, semicolon or colon), so a
+   * "Don't worry, our bank details changed" opener cannot switch the sign off.
+   */
+  negatable?: boolean | 'clause';
   /** Custom detector for signs that are not a plain regular expression. */
   detect?: (text: string) => { spans: Span[]; explanation?: string } | null;
   /** Combination sign: fires only when all listed ids fired and `context` matches. */
@@ -23,7 +27,12 @@ export interface SignalDefinition {
   context?: RegExp;
 }
 
-const NEGATION_BEFORE = /\b(?:never|not|don'?t|do not|won'?t|will not|no one|nobody|cannot|can'?t|nor)\b[^.!?\n]*$/i;
+const NEGATION_WORDS = String.raw`\b(?:never|not|don'?t|do not|won'?t|will not|no one|nobody|cannot|can'?t|nor)\b`;
+const NEGATION_BEFORE = new RegExp(`${NEGATION_WORDS}[^.!?\\n]*$`, 'i');
+const NEGATION_IN_CLAUSE = new RegExp(`${NEGATION_WORDS}[^.!?\\n,;:]*$`, 'i');
+
+/** Up to 60 characters within one sentence; a dot is allowed only as a decimal point ("18,420.00"). */
+const SAME_SENTENCE = String.raw`(?:[^.!?\n]|\.(?=\d)){0,60}?`;
 
 const JOB_CONTEXT =
   /\b(?:recruit\w*|hiring|hire|role|position|job|vacanc\w*|interview\w*|candidate|applicant|test task|take[- ]home|assignment|technical (?:test|task|assessment)|coding (?:test|task|challenge|assessment)|offer|salary|compensation|onboarding|talent)\b/i;
@@ -128,9 +137,13 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     severity: 'medium',
     category: 'off-platform-lure',
     explanation: 'Scammers move the chat to Telegram or WhatsApp, away from the platform\'s scam filters.',
-    negatable: true,
+    negatable: 'clause',
     patterns: [
-      /\b(?:contact|message|text|reach|add|chat with|talk to|write to|dm|ping|find|join)\s+(?:me|us|him|her|our\s+\w+(?:\s+\w+)?|the\s+\w+(?:\s+\w+)?)?\s*(?:on|via|at|through|in|over)\s+(?:telegram|whatsapp|signal|wechat|viber|line app|kik)\b/gi,
+      /\b(?:contact|message|text|reach|add|chat with|talk to|write to|dm|ping|find|join|confirm|reply|respond|answer|call)\s+(?:me|us|him|her|our\s+\w+(?:\s+\w+)?|the\s+\w+(?:\s+\w+)?)?\s*(?:on|via|at|through|in|over)\s+(?:telegram|whatsapp|signal|wechat|viber|line app|kik)\b/gi,
+      // "WhatsApp only": the one channel the sender allows is outside the platform.
+      /\b(?:telegram|whatsapp|wechat|viber)\s+only\b/gi,
+      /\b(?:on|via|through|over)\s+signal\s+only\b/gi,
+      /\bonly\s+(?:on|via|through|over|by)\s+(?:telegram|whatsapp|signal|wechat|viber)\b/gi,
       /\b(?:move|continue|switch|take)\s+(?:this|our|the)\s+(?:conversation|chat|discussion|interview)\s+(?:to|on|over to)\s+(?:telegram|whatsapp|signal|wechat|viber)\b/gi,
       /\b(?:t\.me|wa\.me|telegram\.me|chat\.whatsapp\.com)\/[\w+/-]+/gi,
       /\b(?:telegram|whatsapp|signal)\s*(?:id|handle|username|number)?\s*[:：]?\s*(?:@\w{3,}|\+\d[\d\s-]{6,})/gi,
@@ -250,10 +263,13 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     severity: 'high',
     category: 'fake-invoice',
     explanation: '"Our bank details have changed" is how invoice fraud redirects real payments; confirm by phone.',
+    // "Our bank details have NOT changed" never matches; "We will never ask you to pay to the new account" is negated.
+    negatable: 'clause',
     patterns: [
-      /\b(?:our|my|the|company'?s?)\s+(?:bank(?:ing)?|payment|account|remittance|wire)\s+(?:details|information|info|account|instructions)\s+(?:have|has)\s+(?:been\s+)?(?:changed|updated|moved)\b/gi,
-      /\b(?:pay|send|remit|transfer|wire)\b[^.!?\n]{0,40}\bto\s+(?:the|our)\s+new\s+(?:bank\s+)?account\b/gi,
-      /\b(?:do not|don'?t|stop)\s+(?:use|pay(?:ing)? (?:in)?to|send(?:ing)? to)\s+(?:the|our)\s+(?:old|previous|former|usual)\s+(?:bank\s+)?account\b/gi,
+      /\b(?:our|my|the|company'?s?)\s+(?:bank(?:ing)?|payment|account|remittance|wire)\s+(?:details|information|info|account|instructions)\s+(?:(?:have|has)\s+)?(?:(?:recently|just|now)\s+)?(?:been\s+)?(?:changed|updated|moved|switched)\b/gi,
+      /\b(?:we|i)(?:\s+have|'ve)?\s+(?:recently\s+|just\s+)?(?:changed|updated|switched|moved)\s+(?:our|my)\s+(?:bank(?:ing)?\s+|payment\s+)?(?:details|information|account|bank|iban)\b/gi,
+      new RegExp(String.raw`\b(?:pay(?:ing|ments?)?|send(?:ing)?|remit|transfer|wire)\b${SAME_SENTENCE}\bto\s+(?:the|our|my|this)\s+new\s+(?:bank\s+)?(?:account|iban)\b`, 'gi'),
+      /\b(?:do not|don'?t|stop)\s+(?:use|pay(?:ing)? (?:in)?to|send(?:ing)? to)\s+(?:the|our)\s+(?:old|previous|former|usual)\s+(?:bank\s+)?(?:account|iban)\b/gi,
       /\bnew\s+(?:bank(?:ing)?|payment|remittance)\s+(?:details|account|information|instructions)\b/gi,
     ],
   },
@@ -265,9 +281,11 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     category: 'fake-invoice',
     explanation: 'Invoice and "CEO" fraudsters avoid calls because a quick call to the real person exposes them.',
     patterns: [
-      /\b(?:cannot|can'?t|unable to)\s+(?:take|answer|receive)\s+(?:any\s+)?(?:calls?|phone calls)\b/gi,
+      /\b(?:cannot|can'?t|unable to)\s+(?:take|answer|receive|pick up)\s+(?:any\s+)?(?:calls?|phone calls|the phone)\b/gi,
       /\b(?:confirm|reply|respond)\s+(?:by|via)\s+e-?mail\s+only\b/gi,
-      /\b(?:in a meeting|stuck in a (?:board )?meeting|on a flight|travelling|traveling)\b[^.!?\n]{0,40}\b(?:can'?t|cannot|unable to)\s+(?:talk|call|answer)\b/gi,
+      /\b(?:in a meeting|stuck in a (?:board )?meeting|on a flight|travelling|traveling)\b[^.!?\n]{0,40}\b(?:can'?t|cannot|unable to)\s+(?:talk|call|answer|pick up)\b/gi,
+      // CEO fraud: "I'm travelling, so confirm on WhatsApp only" (away, and only one written channel).
+      /\b(?:i'?m|i am|we'?re|we are)\s+(?:currently\s+|still\s+)?(?:travelling|traveling|abroad|in (?:a |another )?meetings?|on (?:a |the )?(?:flight|plane|road))\b[^.!?\n]{0,60}?\b(?:e-?mail|whatsapp|telegram|signal|text|sms|chat)\s+only\b/gi,
     ],
   },
   {
@@ -555,11 +573,12 @@ const MAX_SPANS = 8;
 
 function runPatterns(text: string, def: SignalDefinition): Span[] {
   const spans: Span[] = [];
+  const negation = def.negatable === 'clause' ? NEGATION_IN_CLAUSE : def.negatable ? NEGATION_BEFORE : null;
   for (const re of def.patterns ?? []) {
     for (const m of text.matchAll(re)) {
       if (!m[0]) continue;
       const start = m.index;
-      if (def.negatable && NEGATION_BEFORE.test(text.slice(Math.max(0, start - 40), start))) continue;
+      if (negation?.test(text.slice(Math.max(0, start - 40), start))) continue;
       spans.push({ start, end: start + m[0].length });
     }
   }

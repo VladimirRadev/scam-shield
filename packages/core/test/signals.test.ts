@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { signals, heuristicScore, SIGNAL_DEFINITIONS } from '../src/signals';
+import { INVOICE_REDIRECT } from './fixtures/invoice-redirect';
 
 const ids = (text: string) => signals(text).map((s) => s.id);
 
@@ -117,6 +118,60 @@ describe('signals()', () => {
     const t =
       'octocat requested your review on acme/web#118: "Fix date picker in Safari". You can view, comment on, or merge this pull request online at https://github.com/acme/web/pull/118';
     expect(heuristicScore(signals(t)).total).toBeLessThan(20);
+  });
+});
+
+describe('payment redirection and CEO-fraud pressure', () => {
+  it('flags the demo invoice-redirection message on three signs', () => {
+    const found = ids(INVOICE_REDIRECT);
+    expect(found).toContain('bank-details-changed');
+    expect(found).toContain('off-platform');
+    expect(found).toContain('no-callback');
+    const score = heuristicScore(signals(INVOICE_REDIRECT));
+    expect(score.hard).toBeGreaterThan(0);
+    expect(score.total).toBeGreaterThanOrEqual(40);
+  });
+
+  it.each([
+    ['details changed, no "have"', 'Our bank details changed after an audit.'],
+    ['banking information updated', 'Our banking information has been updated. Kindly remit all future payments to the new account below.'],
+    ['we changed our account', 'We have changed our bank account. Please send the payment to our new IBAN: DE89 3704 0044 0532 0130 00.'],
+    ['pay to the new account, amount with decimals', 'Please pay invoice 4471 (USD 9,870.50) to the new account, not the old one.'],
+    ['landlord with a new bank account', 'Hi, my account details have been updated, so please transfer this month\'s rent to my new bank account.'],
+    ['future payments to the new IBAN', 'From now on, all payments should go to the new IBAN below.'],
+    ['negation in another clause does not defuse it', "Don't worry, our bank details changed last week."],
+  ])('flags payment redirection: %s', (_name, text) => {
+    expect(ids(text)).toContain('bank-details-changed');
+  });
+
+  it.each([
+    ['confirm on WhatsApp only', 'Confirm on WhatsApp only: +44 7700 900123.'],
+    ['reply on Telegram only', 'Reply on Telegram only, I do not read this inbox.'],
+    ['Signal only', 'Contact me via Signal only.'],
+    ['negation in another clause does not defuse it', "I can't take calls, so reply on WhatsApp only."],
+  ])('flags a move off the platform: %s', (_name, text) => {
+    expect(ids(text)).toContain('off-platform');
+  });
+
+  it.each([
+    ['in a meeting, can\'t take calls', "I'm in a meeting and can't take calls. Just process the transfer and text me when it's done."],
+    ['travelling, e-mail only', "I'm travelling this week, reachable by email only."],
+    ['on a flight, cannot pick up', 'I am on a flight and cannot pick up the phone, send it today.'],
+  ])('flags CEO-fraud "cannot be reached by phone" pressure: %s', (_name, text) => {
+    expect(ids(text)).toContain('no-callback');
+  });
+
+  it.each([
+    ['bank details NOT changed', 'Reminder: our bank details have NOT changed. Please keep paying to the account already on file.'],
+    ['will never ask for a new account', 'We will never ask you to pay to a new account by email. If in doubt, call us on the usual number.'],
+    ['new account manager', 'Meet Anna, our new account manager. She will send the November invoice as usual.'],
+    ['payslip', 'Your payslip for November 2026 is now available in the HR portal. Your salary was paid to the account on file.'],
+    ['never use WhatsApp', 'Our staff will never contact you on WhatsApp only, and never ask you to pay to the new account of a supplier.'],
+  ])('does not flag a legitimate payment notice: %s', (_name, text) => {
+    const found = ids(text);
+    expect(found).not.toContain('bank-details-changed');
+    expect(found).not.toContain('off-platform');
+    expect(found).not.toContain('no-callback');
   });
 });
 
