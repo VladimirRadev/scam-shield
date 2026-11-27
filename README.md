@@ -21,12 +21,12 @@ The final risk is `max(model, hard-sign floor, average(model, heuristics))`: a f
 flowchart TD
   A["Pasted text, a selection, or a scanned page"] --> B["Local layer in the browser<br/>39 scam signals + redaction of personal data"]
   B --> C{"Gemini Nano usable<br/>in this Chrome?"}
-  C -- "yes" --> D["Gemini Nano on device<br/>RAW text · ONLY_ON_DEVICE<br/>0 bytes uploaded"]
-  C -- "no, or it fails" --> E["Gemini in the cloud<br/>REDACTED text only<br/>PREFER_ON_DEVICE / ONLY_IN_CLOUD"]
+  C -->|"yes"| D["Gemini Nano on device<br/>RAW text · ONLY_ON_DEVICE<br/>0 bytes uploaded"]
+  C -->|"no, or it fails"| E["Gemini in the cloud<br/>REDACTED text only<br/>PREFER_ON_DEVICE / ONLY_IN_CLOUD"]
   D --> F["Verdict: risk 0-100, category,<br/>quoted phrases highlighted, advice"]
   E --> F
-  B -- "hard red flags set a floor" --> F
-  F -. "optional, after a consent dialog<br/>that shows the exact text" .-> G["Deep check · Gemini cloud<br/>REDACTED text · ONLY_IN_CLOUD"]
+  B -->|"hard red flags set a floor"| F
+  F -.->|"optional, after a consent dialog<br/>that shows the exact text"| G["Deep check · Gemini cloud<br/>REDACTED text · ONLY_IN_CLOUD"]
 ```
 
 ### Where your text goes
