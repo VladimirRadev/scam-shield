@@ -5,34 +5,60 @@
  */
 import { readFileSync } from 'node:fs';
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { collection, deleteDoc, doc, getDoc, getDocs, increment, setDoc, updateDoc, type Firestore } from 'firebase/firestore';
+import { deleteApp, initializeApp, type FirebaseApp } from 'firebase/app';
+import * as full from 'firebase/firestore';
+import {
+  collection,
+  connectFirestoreEmulator,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  increment,
+  setDoc,
+  updateDoc,
+  type Firestore,
+} from 'firebase/firestore/lite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readCommunityStats, writeCheckStats, type StatsCheck } from '../../packages/ai/src/stats';
 
+const PROJECT = 'demo-scamshield';
+const [HOST, PORT] = (process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8180').split(':') as [string, string];
+
 let env: RulesTestEnvironment;
+const apps: FirebaseApp[] = [];
 
 const onDeviceScam: StatsCheck = { backend: 'on-device', bytesSent: 0, verdict: 'scam', category: 'malware-task' };
 const cloudSafe: StatsCheck = { backend: 'cloud-redacted', bytesSent: 900, verdict: 'safe', category: 'none' };
 
-const anon = () => env.authenticatedContext('anon-user', { firebase: { sign_in_provider: 'anonymous' } }).firestore() as unknown as Firestore;
-const nobody = () => env.unauthenticatedContext().firestore() as unknown as Firestore;
+/** A Firestore Lite client (what the app uses) on the emulator, signed in or not. */
+function liteClient(uid: string | null): Firestore {
+  const app = initializeApp({ projectId: PROJECT, apiKey: 'demo-key' }, `client-${apps.length}`);
+  apps.push(app);
+  const db = getFirestore(app);
+  connectFirestoreEmulator(db, HOST, Number(PORT), uid ? { mockUserToken: { sub: uid, user_id: uid, firebase: { sign_in_provider: 'anonymous', identities: {} } } } : {});
+  return db;
+}
+const anon = () => liteClient('anon-user');
+const nobody = () => liteClient(null);
 const statsRef = (db: Firestore) => doc(db, 'stats', 'global');
 
 async function seed(data: Record<string, number>) {
   await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore() as unknown as Firestore, 'stats', 'global'), data);
+    await full.setDoc(full.doc(ctx.firestore() as unknown as full.Firestore, 'stats', 'global'), data);
   });
 }
 
 beforeAll(async () => {
-  const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8180').split(':');
   env = await initializeTestEnvironment({
-    projectId: 'demo-scamshield',
-    firestore: { host, port: Number(port), rules: readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8') },
+    projectId: PROJECT,
+    firestore: { host: HOST, port: Number(PORT), rules: readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8') },
   });
 });
 
 afterAll(async () => {
+  await Promise.all(apps.map((a) => deleteApp(a)));
   await env?.cleanup();
 });
 

@@ -5,10 +5,10 @@
  * and the category). Only counter names and `increment(1)` are written: no message text, quote,
  * URL or user id. `firestore.rules` enforces the same shape on the server.
  *
- * Firestore is loaded lazily, after anonymous sign-in, and every error is swallowed:
- * statistics never block or slow down a check.
+ * Firestore Lite (plain REST calls, no offline cache or listeners) is loaded lazily, after
+ * anonymous sign-in, and every error is swallowed: statistics never block or slow down a check.
  */
-import type { Firestore } from 'firebase/firestore';
+import type { Firestore } from 'firebase/firestore/lite';
 import { parseCommunityStats, statsFieldsFor, type CheckResult, type CommunityStats } from '@scamshield/core';
 
 export type StatsCheck = Pick<CheckResult, 'backend' | 'bytesSent' | 'verdict' | 'category'>;
@@ -23,7 +23,7 @@ export function statsPayload<T>(r: StatsCheck, inc: (n: number) => T): Record<st
 
 /** Increment the counters of one finished check (creates `stats/global` on the first check). */
 export async function writeCheckStats(db: Firestore, r: StatsCheck): Promise<void> {
-  const { doc, increment, setDoc } = await import('firebase/firestore');
+  const { doc, increment, setDoc } = await import('firebase/firestore/lite');
   await setDoc(doc(db, STATS_COLLECTION, STATS_DOC_ID), statsPayload(r, increment), { merge: true });
 }
 
@@ -31,7 +31,7 @@ export const NO_CHECKS_YET: CommunityStats = { checks: 0, onDevice: 0, cloudReda
 
 /** Read the community totals; all zero when the document does not exist yet. */
 export async function readCommunityStats(db: Firestore): Promise<CommunityStats> {
-  const { doc, getDoc } = await import('firebase/firestore');
+  const { doc, getDoc } = await import('firebase/firestore/lite');
   const snap = await getDoc(doc(db, STATS_COLLECTION, STATS_DOC_ID));
   return (snap.exists() ? parseCommunityStats(snap.data()) : null) ?? { ...NO_CHECKS_YET };
 }
