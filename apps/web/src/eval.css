@@ -3,52 +3,52 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding-bottom: 48px;
+  padding-bottom: 56px;
 }
 
 .ev-intro {
-  padding: 26px 0 6px;
+  padding: 48px 0 10px;
   max-width: 900px;
 }
 .ev-intro h1 {
   font-family: var(--font-display);
-  font-weight: 400;
-  font-size: clamp(2rem, 4vw, 3.2rem);
-  line-height: 1.05;
+  font-weight: 700;
+  font-size: clamp(2.2rem, 4.6vw, 3.4rem);
+  line-height: 1.08;
   letter-spacing: -0.02em;
-  margin: 0 0 12px;
-}
-.ev-intro h1 em {
-  color: var(--brand);
+  margin: 0 0 14px;
+  text-wrap: balance;
 }
 .ev-intro p {
-  color: var(--ink-2);
-  margin: 0 0 16px;
+  color: var(--lavender);
+  margin: 0 0 20px;
+  max-width: 760px;
 }
 
 .ev-facts {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
 }
 .ev-facts div {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  background: var(--fill);
+  box-shadow: var(--highlight);
+  padding: 10px 16px;
 }
 .ev-facts dt {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   color: var(--muted);
 }
 .ev-facts dd {
-  margin: 0;
-  font-weight: 600;
-  font-size: 0.9rem;
+  margin: 2px 0 0;
+  font-weight: 700;
+  font-size: 0.94rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .is-ok {
@@ -60,9 +60,10 @@
 
 .ev-warn {
   margin: 0;
-  padding: 9px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
   background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
   color: var(--ink);
   font-size: 0.86rem;
 }
@@ -70,41 +71,45 @@
 .ev-routes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 .ev-route {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px;
+  gap: 16px;
+  padding: 20px;
 }
 .ev-route .ss-btn {
   margin-top: auto;
-  align-self: flex-start;
+  align-self: stretch;
+  min-height: 48px;
+  font-size: 0.94rem;
 }
 .ev-route-head {
   display: flex;
-  gap: 12px;
+  gap: 14px;
 }
 .ev-route-head h2 {
-  margin: 0 0 2px;
-  font-size: 1rem;
-  line-height: 1.3;
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  line-height: 1.25;
 }
 .ev-route-head p {
   margin: 0;
   font-size: 0.86rem;
-  color: var(--muted);
+  color: var(--ink-3);
 }
 .ev-route-icon {
   flex: none;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--surface-2);
-  color: var(--ink-2);
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--fill);
+  color: var(--lavender);
 }
 .ev-route-device .ev-route-icon {
   background: var(--device-soft);
@@ -119,50 +124,56 @@
   align-items: center;
   gap: 8px;
   font-size: 0.86rem;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .ev-pause input {
   width: 6.5em;
-  padding: 5px 8px;
-  border-radius: 8px;
+  padding: 6px 10px;
+  border-radius: var(--pill);
   border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  font-family: var(--font-mono);
+  background: var(--fill-soft);
+  font-variant-numeric: tabular-nums;
+}
+.ev-pause input:focus-visible {
+  border-color: var(--magenta);
 }
 
 .ev-progress {
-  padding: 14px 18px;
+  padding: 16px 20px;
+  border-color: rgba(211, 92, 255, 0.3);
 }
 .ev-progress-line {
   display: flex;
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
 }
 .ev-progress-line .ss-btn {
   margin-left: auto;
 }
 .ev-bar {
-  margin-top: 10px;
+  margin-top: 12px;
   height: 8px;
   border-radius: 99px;
-  background: var(--brand-soft);
+  background: var(--fill);
   overflow: hidden;
 }
 .ev-bar span {
   display: block;
   height: 100%;
-  background: var(--brand);
+  background: linear-gradient(90deg, var(--violet), var(--magenta));
+  box-shadow: 0 0 14px rgba(211, 92, 255, 0.6);
   border-radius: inherit;
   transition: width 0.3s;
 }
 
 .ev-summary,
 .ev-detail {
-  padding: 18px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 .ev-detail-head {
   display: flex;
@@ -173,11 +184,21 @@
 }
 .ev-detail-head h2 {
   margin: 0;
-  font-size: 1.05rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.3rem;
+}
+.ev-detail summary {
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--ink-3);
+  width: fit-content;
 }
 
 .ev-table-wrap {
   overflow-x: auto;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 .ev-table {
   width: 100%;
@@ -188,17 +209,24 @@
 .ev-table th,
 .ev-table td {
   text-align: left;
-  padding: 7px 10px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
 .ev-table thead th {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   color: var(--muted);
   white-space: nowrap;
+}
+.ev-table tbody th {
+  font-weight: 700;
+}
+.ev-table tbody tr:hover td,
+.ev-table tbody tr:hover th {
+  background: var(--fill-soft);
 }
 .ev-ids,
 .ev-rows td:first-child {
@@ -209,20 +237,25 @@
   background: var(--scam-soft);
 }
 .ev-note {
-  color: var(--muted);
+  color: var(--ink-3);
   max-width: 420px;
 }
 
 .ev-md {
   width: 100%;
   resize: vertical;
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.22);
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  line-height: 1.5;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.ev-md:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 @media (max-width: 860px) {
@@ -233,5 +266,8 @@
 @media (max-width: 680px) {
   .ev {
     padding: 0 16px;
+  }
+  .ev-intro {
+    padding-top: 28px;
   }
 }
