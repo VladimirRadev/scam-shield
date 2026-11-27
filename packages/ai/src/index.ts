@@ -3,11 +3,14 @@
  * status of the on-device model, model download, quick check and deep check.
  */
 import {
+  analyzeLocal,
+  combine,
   DEFAULT_THRESHOLDS,
   prepareDeepCheck,
   runDeepCheck,
   runQuickCheck,
   type CheckResult,
+  type CommunityStats,
   type PreparedDeepCheck,
 } from '@scamshield/core';
 import { readEnv, type EnvResult, type ReadEnvOptions, type ScamShieldEnv } from './env';
@@ -15,11 +18,21 @@ import { initFirebase, type FirebaseServices } from './firebase';
 import { createModels, sdkGenerate, type ScamShieldModels } from './models';
 import { downloadOnDeviceModel, markOnDeviceFailed, onDeviceStatus, type OnDeviceStatus } from './on-device';
 import { DEFAULT_APP_CONFIG, loadAppConfig, type AppConfig } from './remote-config';
+import { createStatsClient, type StatsClient } from './stats';
 
 export * from './env';
 export * from './on-device';
 export * from './remote-config';
 export { hybridParams } from './models';
+export { createStatsClient, readCommunityStats, writeCheckStats, statsPayload, type StatsCheck, type StatsClient } from './stats';
+
+/**
+ * Fixed routes for the evaluation page (apps/web/eval.html):
+ * - `device`: RAW text, InferenceMode.ONLY_ON_DEVICE, never falls back to the cloud;
+ * - `cloud`: REDACTED text, InferenceMode.ONLY_IN_CLOUD;
+ * - `heuristics`: no model, local signals only.
+ */
+export type EvalRoute = 'device' | 'cloud' | 'heuristics';
 
 export interface ScamShieldAI {
   /** False when the Firebase config is missing: checks run on heuristics only. */
@@ -34,6 +47,10 @@ export interface ScamShieldAI {
   quickCheck(text: string): Promise<CheckResult>;
   prepareDeep(text: string): PreparedDeepCheck;
   deepCheck(text: string, prepared: PreparedDeepCheck): Promise<CheckResult>;
+  /** Anonymous community totals from Firestore (zeros before the first check), null if unreachable. */
+  communityStats(): Promise<CommunityStats | null>;
+  /** One check on a fixed route, for the evaluation page. Not counted in the community stats. */
+  evalCheck(text: string, route: EvalRoute): Promise<CheckResult>;
   services: FirebaseServices | null;
 }
 
@@ -67,6 +84,13 @@ export function createScamShieldAI(rawEnv: Record<string, string | boolean | und
     return models;
   };
 
+  // Counters only (see stats.ts). Never blocks a check, never throws.
+  const stats: StatsClient | null = services ? createStatsClient({ user: services.user, firestore: services.firestore }) : null;
+  const counted = (r: CheckResult): CheckResult => {
+    stats?.record(r);
+    return r;
+  };
+
   const heuristicsOnly = (note: string) => () => Promise.reject(new Error(note));
   const missingNote = envResult.ok
     ? `Firebase failed to start (${initError ?? 'unknown error'})`
@@ -87,7 +111,7 @@ export function createScamShieldAI(rawEnv: Record<string, string | boolean | und
     async quickCheck(text) {
       const m = await getModels();
       const status = await onDeviceStatus();
-      return runQuickCheck(text, {
+      const result = await runQuickCheck(text, {
         onDeviceAvailable: Boolean(m) && status === 'available',
         // "available" but no session could be created (e.g. no usable GPU): cloud, redacted only.
         onDeviceFailed: status === 'failed',
@@ -95,6 +119,7 @@ export function createScamShieldAI(rawEnv: Record<string, string | boolean | und
         generate: m ? sdkGenerate(m) : heuristicsOnly(missingNote),
         thresholds: appConfig.thresholds ?? DEFAULT_THRESHOLDS,
       });
+      return counted(result);
     },
     prepareDeep(text) {
       return prepareDeepCheck(text, appConfig.thresholds);
@@ -104,7 +129,24 @@ export function createScamShieldAI(rawEnv: Record<string, string | boolean | und
       if (!appConfig.deepCheckEnabled) {
         return runDeepCheck(text, { generate: heuristicsOnly('Deep check is switched off in Remote Config'), thresholds: appConfig.thresholds }, prepared);
       }
-      return runDeepCheck(text, { generate: m ? sdkGenerate(m) : heuristicsOnly(missingNote), thresholds: appConfig.thresholds }, prepared);
+      return counted(await runDeepCheck(text, { generate: m ? sdkGenerate(m) : heuristicsOnly(missingNote), thresholds: appConfig.thresholds }, prepared));
+    },
+    communityStats: () => stats?.read() ?? Promise.resolve(null),
+    async evalCheck(text, route) {
+      const m = await getModels();
+      const thresholds = appConfig.thresholds ?? DEFAULT_THRESHOLDS;
+      if (route === 'heuristics') {
+        const t0 = performance.now();
+        const local = analyzeLocal(text);
+        return combine({ text, local, model: null, backend: 'heuristics-only', latencyMs: performance.now() - t0, sentText: null, thresholds });
+      }
+      const generate = m ? sdkGenerate(m) : heuristicsOnly(missingNote);
+      if (route === 'device') {
+        // Raw text through ONLY_ON_DEVICE only; a failure gives a heuristics-only row, never a cloud call.
+        return runQuickCheck(text, { onDeviceAvailable: true, allowCloudFallback: false, onDeviceFailure: () => undefined, generate, thresholds });
+      }
+      // Redacted text through ONLY_IN_CLOUD (the quick-check fallback route).
+      return runQuickCheck(text, { onDeviceAvailable: false, onDeviceFailed: true, generate, thresholds });
     },
     get services() {
       return services;
