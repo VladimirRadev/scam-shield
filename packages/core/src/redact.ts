@@ -39,7 +39,7 @@ const PRIORITY: Record<RedactionKind, number> = {
 
 /** Placeholders this module produces; never redact inside them (makes redact idempotent). */
 const PLACEHOLDER_RE =
-  /\[(?:EMAIL@[^\]\s]*|PHONE|IBAN|CARD|CVV|PRIVATE_KEY|CRYPTO_ADDRESS|SEED_PHRASE|STREET_ADDRESS|ID_NUMBER|DATE_OF_BIRTH|CODE|HANDLE|NAME|URL:[^\]\s]*)\]/g;
+  /\[(?:EMAIL@(?:[\p{L}\p{N}-]+\.)+\p{L}{2,24}|PHONE|IBAN|CARD|CVV|PRIVATE_KEY|CRYPTO_ADDRESS|SEED_PHRASE|STREET_ADDRESS|ID_NUMBER|DATE_OF_BIRTH|CODE|HANDLE|NAME|URL:(?:[\p{L}\p{N}-]+\.)+[\p{L}\p{N}-]{2,63})\]/gu;
 
 // ------------------------------------------------------------------ detectors
 
@@ -62,7 +62,8 @@ function urls(text: string): Candidate[] {
   return out;
 }
 
-const EMAIL_RE = /[A-Za-z0-9._%+-]+@((?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,24})\b/g;
+/** Local part in any script; the domain may not be followed by another "@" (no half-matched addresses). */
+const EMAIL_RE = /[\p{L}\p{N}._%+-]+@((?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+\p{L}{2,24})(?![\p{L}\p{N}@-])/gu;
 
 function emails(text: string): Candidate[] {
   return [...text.matchAll(EMAIL_RE)].map((m) => ({
@@ -382,7 +383,10 @@ function streets(text: string): Candidate[] {
   return out;
 }
 
-/** Words after "Dear" / "Hi" that are not names. Generic greetings are kept: they are a scam sign. */
+/**
+ * Capitalised words that open a greeting or sign-off but are not names. Generic greetings
+ * ("Dear Customer") are kept on purpose: they are themselves a scam sign.
+ */
 const NOT_NAMES = new Set(
   [
     'customer', 'customers', 'user', 'users', 'client', 'clients', 'member', 'members', 'team', 'all', 'there',
@@ -391,29 +395,55 @@ const NOT_NAMES = new Set(
     'account', 'holder', 'subscriber', 'dear', 'again', 'hiring', 'manager', 'recruiter', 'sender', 'buyer',
     'seller', 'shopper', 'investor', 'participant', 'student', 'parent', 'patient', 'owner', 'cardholder',
     'mr', 'mrs', 'ms', 'dr', 'world', 'support', 'admin', 'administrator', 'it', 'hr', 'and', 'from',
+    // common words that start a sentence after a comma or a title
+    'the', 'then', 'this', 'that', 'these', 'those', 'please', 'we', 'our', 'you', 'your', 'they', 'here',
+    'thanks', 'thank', 'regards', 'best', 'cheers', 'bye', 'goodbye', 'love', 'mate', 'bro', 'buddy', 'boss',
+    'mom', 'mum', 'dad', 'honey', 'babe', 'sweetie', 'darling', 'gentlemen', 'ladies', 'sweetheart', 'yes', 'no',
+    'ok', 'okay', 'sure', 'today', 'tomorrow', 'soon', 'later', 'everyone', 'nobody', 'someone',
   ].map((w) => w.toLowerCase()),
 );
 const ORG_WORDS =
-  /\b(?:Team|Support|Department|Dept|Service|Services|Desk|Group|Inc|Ltd|LLC|GmbH|Bank|Security|Customer|Care|Center|Centre|Office|Administration|Notifications?|Billing|Recruitment|Talent|Account|Accounts)\b/;
+  /\b(?:Team|Support|Department|Dept|Service|Services|Desk|Group|Inc|Ltd|LLC|GmbH|Bank|Security|Customer|Care|Center|Centre|Office|Administration|Notifications?|Billing|Recruitment|Talent|Account|Accounts|Clinic|Hospital)\b/;
 const BRAND_WORDS = new Set(BRANDS.flatMap((b) => [b.name.toLowerCase(), ...b.keys]));
 
-const NAME = `[A-Z][a-zA-Z'’-]+(?:\\s+[A-Z]\\.)?(?:\\s+[A-Z][a-zA-Z'’-]+){0,2}`;
-const TITLE = `(?:(?:Mr|Mrs|Ms|Miss|Dr|Prof)\\.?\\s+)?`;
+/** A capitalised name of 1-3 words in any script (Zoë, Георги, O'Brien, Mary-Jane), with an optional initial. */
+const NAME = `\\p{Lu}[\\p{L}\\p{M}'’-]+(?:[ \\t]+\\p{Lu}\\.)?(?:[ \\t]+\\p{Lu}[\\p{L}\\p{M}'’-]+){0,2}`;
+const TITLE_WORDS = 'Mr|Mrs|Ms|Miss|Mx|Dr|Prof|Engr|Eng|Rev|Sir|Dame|Barrister|Atty|Hon';
+const TITLE = `(?:(?:${TITLE_WORDS})\\.?[ \\t]+)?`;
+const TITLE_STRIP_RE = new RegExp(`^(?:${TITLE_WORDS})\\.?\\s+`, 'u');
+/** Not inside another word (\b is ASCII-only, so Cyrillic needs this). */
+const START = '(?<![\\p{L}\\p{N}_])';
+const GREETINGS =
+  '[Hh]i|[Hh]ello|[Hh]ey|[Dd]ear|[Gg]ood (?:morning|afternoon|evening)|[Gg]reetings|[Hh]owdy|Здравей(?:те)?|Здрасти|Привет|Здравствуй(?:те)?|Уважаем(?:и|а|ый|ая)|Скъп(?:и|а)';
+const SIGNOFFS =
+  'Best regards|Kind regards|Warm regards|Regards|Best wishes|Best|Thanks|Thank you|Many thanks|Sincerely|Yours sincerely|Yours truly|Cheers|Respectfully|All the best|Talk soon|Br|Поздрави|Благодаря|Спасибо';
+
 const GREETING_RE = new RegExp(
-  `\\b(?:[Hh]i|[Hh]ello|[Hh]ey|[Dd]ear|[Gg]ood (?:morning|afternoon|evening)|[Gg]reetings)[ \\t]+(${TITLE}${NAME})(?=[ \\t]*[,!.:\\n]|$)`,
-  'dg',
+  // The name ends at punctuation, the end of the line, or before a lower-case word ("Hi John how are you").
+  `${START}(?:${GREETINGS})[ \\t]+(${TITLE}${NAME})(?=[ \\t]*[,!.:;\\n]|$|[ \\t]+\\p{Ll})`,
+  'dgu',
 );
 const SIGNOFF_RE = new RegExp(
-  `(?:^|\\n)[ \\t]*(?:Best regards|Kind regards|Warm regards|Regards|Best wishes|Best|Thanks|Thank you|Many thanks|Sincerely|Yours sincerely|Yours truly|Cheers|Respectfully|All the best|Talk soon|Br)[,.!]?[ \\t]*\\n[ \\t]*(${TITLE}${NAME})[ \\t]*(?=\\n|$)`,
-  'dg',
+  // "Best regards,\nDaniel Novak" and "Cheers,\nTom, Engineering Manager"
+  `(?:^|\\n)[ \\t]*(?:${SIGNOFFS})[,.!]?[ \\t]*\\n[ \\t]*(${TITLE}${NAME})[ \\t]*(?=[\\n,|–—-]|$)`,
+  'dgu',
 );
-const INTRO_RE = new RegExp(`\\b(?:[Mm]y name is|[Tt]his is|I am|I'm|I’m)[ \\t]+(${TITLE}${NAME})`, 'dg');
+const SIGNOFF_INLINE_RE = new RegExp(
+  // "Thanks, Georgi" / "Best, Tom" / "Regards, Dr. Ivanova" at the start of a line or a sentence.
+  `(?:^|\\n|[.!?][ \\t]+)[ \\t]*(?:${SIGNOFFS})[ \\t]*[,–—-][ \\t]*(${TITLE}${NAME})[ \\t]*(?=[\\n.!]|,[ \\t]*\\p{Lu}|$)`,
+  'dgu',
+);
+const INTRO_RE = new RegExp(`${START}(?:[Mm]y name is|[Tt]his is|I am|I'm|I’m|Казвам се|Аз съм)[ \\t]+(${TITLE}${NAME})`, 'dgu');
+/** A title followed by a name, anywhere: "Dr. Paul Ekene", "Engr. Daniel Weller", "Mr Smith". */
+const TITLED_RE = new RegExp(`${START}((?:Mr|Mrs|Ms|Mx|Dr|Prof|Engr|Rev|Barrister|Atty)\\.?[ \\t]+${NAME})`, 'dgu');
+/** "name: Ivan Petrov" at the start of a line or after a comma. */
+const LABEL_RE = new RegExp(`(?:^|\\n|[,;(][ \\t]*)(?:[Ff]ull [Nn]ame|[Nn]ame)[ \\t]*:[ \\t]*(${TITLE}${NAME})`, 'dgu');
 
 function nameCandidate(m: RegExpExecArray | RegExpMatchArray, strict: boolean): Candidate | null {
   const idx = m.indices?.[1];
   const value = m[1];
   if (!idx || !value) return null;
-  const words = value.replace(/^(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+/, '').split(/\s+/);
+  const words = value.replace(TITLE_STRIP_RE, '').split(/\s+/);
   const first = (words[0] ?? '').toLowerCase();
   if (NOT_NAMES.has(first) || BRAND_WORDS.has(first)) return null;
   if (ORG_WORDS.test(value)) return null;
@@ -423,17 +453,19 @@ function nameCandidate(m: RegExpExecArray | RegExpMatchArray, strict: boolean): 
 
 function names(text: string): Candidate[] {
   const out: Candidate[] = [];
-  for (const m of text.matchAll(GREETING_RE)) {
-    const c = nameCandidate(m, false);
-    if (c) out.push(c);
-  }
-  for (const m of text.matchAll(SIGNOFF_RE)) {
-    const c = nameCandidate(m, false);
-    if (c) out.push(c);
-  }
-  for (const m of text.matchAll(INTRO_RE)) {
-    const c = nameCandidate(m, true);
-    if (c) out.push(c);
+  const rules: Array<[RegExp, boolean]> = [
+    [GREETING_RE, false],
+    [SIGNOFF_RE, false],
+    [SIGNOFF_INLINE_RE, false],
+    [INTRO_RE, true],
+    [TITLED_RE, true],
+    [LABEL_RE, false],
+  ];
+  for (const [re, strict] of rules) {
+    for (const m of text.matchAll(re)) {
+      const c = nameCandidate(m, strict);
+      if (c) out.push(c);
+    }
   }
   return out;
 }

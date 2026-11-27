@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { redact, registrableDomain, mapRedactedSpanToOriginal } from '../src/redact';
+import { EXAMPLES } from '../src/examples';
 
 describe('redact()', () => {
   it('removes email addresses but keeps the domain as a hint', () => {
@@ -295,5 +296,98 @@ describe('redact(): identity numbers, dates of birth, one-time codes and handles
   it('does not take e-mail addresses or npm scopes for handles', () => {
     expect(redact('mail bob@x.io').text).toBe('mail [EMAIL@x.io]');
     expect(redact('npm i @types/node').text).toBe('npm i @types/node');
+  });
+});
+
+describe('redact(): names', () => {
+  it.each([
+    ['Thanks, Georgi', 'Thanks, [NAME]'],
+    ['See you on Tuesday. Thanks, Georgi', 'See you on Tuesday. Thanks, [NAME]'],
+    ['Best, Tom', 'Best, [NAME]'],
+    ['Regards, Dr. Ivanova', 'Regards, [NAME]'],
+    ['Regards, Maria Petrova', 'Regards, [NAME]'],
+    ['Cheers,\nTom, Engineering Manager', 'Cheers,\n[NAME], Engineering Manager'],
+    ['Thanks, Георги', 'Thanks, [NAME]'],
+  ])('masks a sign-off name: %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it.each([
+    ['Hi John how are you', 'Hi [NAME] how are you'],
+    ['Hi Zoë, please confirm', 'Hi [NAME], please confirm'],
+    ['Здравей Иване, моля потвърди', 'Здравей [NAME], моля потвърди'],
+    ['Dear Mr. John Smith,', 'Dear [NAME],'],
+  ])('masks a greeting name: %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it.each([
+    ['Dr. Paul Ekene, Claims Director', '[NAME], Claims Director'],
+    ['the late Engr. Daniel Weller who died', 'the late [NAME] who died'],
+    ['your appointment with Dr. Ivanova at Sofia Family Clinic', 'your appointment with [NAME] at Sofia Family Clinic'],
+    ['Mr Smith called', '[NAME] called'],
+    ['ask Prof. Anna Berg today', 'ask [NAME] today'],
+    ['Mrs. Zoë Brontë will sign', '[NAME] will sign'],
+  ])('masks a title with its name anywhere: %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it('masks a labelled name', () => {
+    expect(redact('name: Ivan Petrov, city: Sofia').text).toBe('name: [NAME], city: Sofia');
+  });
+
+  it.each([
+    'Hi there, how are you?',
+    'Hi team, the build is green.',
+    'Hi all how is it going',
+    'Hello World',
+    'Thanks, Everyone!',
+    'Best, The Coinbase Team',
+    'Regards, Customer Service',
+    'Thanks, I will check tomorrow.',
+    'Thanks, Please confirm the order.',
+    'Dear Sir or Madam,',
+    'Hi Netflix member, your plan renews.',
+  ])('keeps common words after greetings and sign-offs: %s', (t) => {
+    expect(redact(t).text).toBe(t);
+  });
+});
+
+describe('redact(): e-mail edge cases', () => {
+  it('masks an e-mail whose local part has non-ASCII letters', () => {
+    expect(redact('contact me at jöhn@example.com').text).toBe('contact me at [EMAIL@example.com]');
+  });
+
+  it('does not let text shaped like a placeholder hide an address', () => {
+    const r = redact('[EMAIL@ivan.petrov@gmail.com] wrote');
+    expect(r.text).not.toContain('ivan.petrov');
+  });
+});
+
+describe('redact(): shipped examples', () => {
+  const LEAKS: Array<[string, RegExp]> = [
+    ['scam-lottery', /Paul|Ekene/],
+    ['scam-inheritance', /Daniel|Weller|James|Okoro/],
+    ['legit-takehome', /\bTom\b|\bSam\b/],
+    ['legit-rent', /Georgi/],
+    ['legit-doctor', /Ivanova/],
+    ['legit-otp', /482913/],
+    ['legit-github', /kchen/],
+  ];
+  it.each(LEAKS)('%s: no personal detail from the review is left in the redacted text', (id, leak) => {
+    const ex = EXAMPLES.find((e) => e.id === id);
+    expect(ex, id).toBeDefined();
+    expect(redact(ex!.text).text).not.toMatch(leak);
+  });
+
+  it('every redaction of every example maps back onto its original text', () => {
+    for (const ex of EXAMPLES) {
+      const r = redact(ex.text);
+      for (const red of r.redactions) {
+        expect(r.text.slice(red.redacted.start, red.redacted.end), ex.id).toBe(red.replacement);
+        const mapped = mapRedactedSpanToOriginal(red.redacted, r.redactions);
+        expect(mapped, ex.id).toEqual(red.original);
+      }
+    }
   });
 });
