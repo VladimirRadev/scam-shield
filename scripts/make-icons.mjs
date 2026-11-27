@@ -9,7 +9,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { deflateSync, crc32 } from 'node:zlib';
 
 const OUT = new URL('../apps/extension/public/icons/', import.meta.url);
-const BRAND = [0x23, 0x40, 0xff];
+// Diagonal brand gradient, top-left to bottom-right (same as the ShieldMark SVG).
+const BRAND_FROM = [0x8a, 0x5c, 0xf0];
+const BRAND_TO = [0xd3, 0x5c, 0xff];
+const brandAt = (x, y) => {
+  const t = Math.max(0, Math.min(1, (x / 100 + y / 116) / 2));
+  return BRAND_FROM.map((c, i) => c + (BRAND_TO[i] - c) * t);
+};
 
 function cubic(p0, p1, p2, p3, n = 24) {
   const pts = [];
@@ -59,9 +65,10 @@ function render(size) {
       const total = S * S, a = (shield + key) / total;
       const k = shield + key ? key / (shield + key) : 0;
       const i = (py * size + pxl) * 4;
-      px[i] = Math.round(BRAND[0] * (1 - k) + 255 * k);
-      px[i + 1] = Math.round(BRAND[1] * (1 - k) + 255 * k);
-      px[i + 2] = Math.round(BRAND[2] * (1 - k) + 255 * k);
+      const brand = brandAt((pxl + 0.5 - ox) / scale, (py + 0.5 - oy) / scale);
+      px[i] = Math.round(brand[0] * (1 - k) + 0xfc * k);
+      px[i + 1] = Math.round(brand[1] * (1 - k) + 0xfa * k);
+      px[i + 2] = Math.round(brand[2] * (1 - k) + 0xff * k);
       px[i + 3] = Math.round(a * 255);
     }
   }
