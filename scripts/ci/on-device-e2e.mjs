@@ -156,6 +156,7 @@ class Tab {
     const tab = new Tab(cdp, targetId, sessionId);
     await tab.send('Page.enable');
     await tab.send('Runtime.enable');
+    await tab.send('Page.addScriptToEvaluateOnNewDocument', { source: NANO_PROBE_JS });
     if (url) await tab.goto(url);
     return tab;
   }
@@ -248,6 +249,41 @@ class Tab {
     log(`saved ${file}`);
   }
 }
+
+/**
+ * Injected before any page script (Page.addScriptToEvaluateOnNewDocument): wraps
+ * LanguageModel.create() and each session's prompt(), so every real SDK call is measured
+ * (create ms, prompt ms, input/output size, trailing whitespace, errors) in window.__nanoLog.
+ */
+const NANO_PROBE_JS = `(() => {
+  if (typeof LanguageModel === 'undefined' || LanguageModel.__wrapped) return;
+  const log = (window.__nanoLog = []);
+  const create = LanguageModel.create.bind(LanguageModel);
+  LanguageModel.__wrapped = true;
+  LanguageModel.create = async (opts) => {
+    const c = { kind: 'create', at: Date.now() };
+    log.push(c);
+    const t0 = performance.now();
+    let s;
+    try { s = await create(opts); } catch (e) { c.ms = Math.round(performance.now() - t0); c.error = String(e && e.name ? e.name + ': ' + e.message : e); throw e; }
+    c.ms = Math.round(performance.now() - t0);
+    const prompt = s.prompt.bind(s);
+    s.prompt = async (input, popts) => {
+      const p = { kind: 'prompt', at: Date.now(), inputChars: JSON.stringify(input).length, constrained: Boolean(popts && popts.responseConstraint) };
+      log.push(p);
+      const t1 = performance.now();
+      try {
+        const out = await prompt(input, popts);
+        p.ms = Math.round(performance.now() - t1); p.outChars = out.length; p.trailingWs = out.length - out.trimEnd().length; p.out = out.slice(0, 2000);
+        return out;
+      } catch (e) { p.ms = Math.round(performance.now() - t1); p.error = String(e && e.name ? e.name + ': ' + e.message : e); throw e; }
+    };
+    return s;
+  };
+})();`;
+
+/** Every finished or pending call recorded by NANO_PROBE_JS in this page. */
+const nanoLog = (tab) => tab.eval('window.__nanoLog ?? []').catch(() => []);
 
 /** JS expression: the first element matching `sel` whose text contains `text`. */
 const byText = (sel, text) =>
@@ -617,6 +653,16 @@ async function evalDevice(app) {
     }
   }
   P.wallMs = Date.now() - t0;
+  // A call the app gave up on (timeout) keeps running in Chrome: measure it to its end.
+  const tWait = Date.now();
+  let calls = await nanoLog(app);
+  while (calls.some((c) => c.ms === undefined) && Date.now() - tWait < 4 * MIN) {
+    await sleep(5000);
+    calls = await nanoLog(app);
+  }
+  writeFileSync(join(OUT, `nano-calls-eval.json`), JSON.stringify(calls, null, 2));
+  P.nano = nanoStats(calls);
+  log(`eval Nano calls: ${JSON.stringify(P.nano)}`);
   const result = await app.eval('window.__evalResult');
   writeFileSync(join(OUT, `eval-${route}.json`), JSON.stringify(result, null, 2));
   // The text the page's "Copy Markdown for README" button copies.
@@ -635,6 +681,26 @@ async function evalDevice(app) {
   else if (P.offRoute) problem(`${P.offRoute} of ${P.n} eval examples were not answered on the device (see eval-device.json notes)`);
 }
 
+/** Summary of NANO_PROBE_JS records: prompt count, latency, output size, padding, errors. */
+function nanoStats(calls) {
+  const prompts = calls.filter((c) => c.kind === 'prompt');
+  const done = prompts.filter((c) => c.ms !== undefined && !c.error).map((c) => c.ms).sort((a, b) => a - b);
+  const q = (f) => (done.length ? done[Math.min(done.length - 1, Math.floor(f * done.length))] : null);
+  return {
+    creates: calls.filter((c) => c.kind === 'create').length,
+    createErrors: calls.filter((c) => c.kind === 'create' && c.error).map((c) => c.error),
+    prompts: prompts.length,
+    pending: prompts.filter((c) => c.ms === undefined).length,
+    promptErrors: prompts.filter((c) => c.error).map((c) => c.error),
+    msMedian: q(0.5),
+    msP90: q(0.9),
+    msMax: done.length ? done[done.length - 1] : null,
+    outCharsAvg: done.length ? Math.round(prompts.filter((c) => c.outChars !== undefined).reduce((a, c) => a + c.outChars, 0) / done.length) : null,
+    trailingWsMax: Math.max(0, ...prompts.map((c) => c.trailingWs ?? 0)),
+    inputCharsAvg: prompts.length ? Math.round(prompts.reduce((a, c) => a + c.inputChars, 0) / prompts.length) : null,
+  };
+}
+
 // ------------------------------------------------------------------ e. shots
 
 async function waitModelReady(app, what) {
@@ -643,7 +709,10 @@ async function waitModelReady(app, what) {
     return true;
   } catch {
     const cls = await app.eval(`document.querySelector('.ss-model')?.className ?? 'no status panel'`).catch(() => '?');
-    problem(`${what}: model status panel is "${cls}", not available`);
+    const reason = await app.eval(`document.querySelector('.ss-model-reason')?.textContent ?? null`).catch(() => null);
+    const calls = await nanoLog(app);
+    writeFileSync(join(OUT, `nano-calls-${what.replace(/\W+/g, '-')}.json`), JSON.stringify(calls, null, 2));
+    problem(`${what}: model status panel is "${cls}", not available${reason ? ` (reason: ${reason})` : ''}; Nano calls: ${JSON.stringify(calls.map(({ out, ...c }) => c))}`);
     return false;
   }
 }
@@ -686,7 +755,8 @@ async function screenshots(app) {
     await sleep(1200); // let the app's own smooth scroll finish
     const chipVisible = await frameResult(app);
     await app.screenshot(file);
-    const item = { id, file, ...card, chipVisible };
+    const last = (await nanoLog(app)).filter((c) => c.kind === 'prompt').pop();
+    const item = { id, file, ...card, chipVisible, nano: last ? { ms: last.ms, outChars: last.outChars, trailingWs: last.trailingWs, error: last.error } : null };
     P.items.push(item);
     save();
     log(`shot ${id}: ${card.verdict} · ${card.provenance} (chip visible: ${chipVisible})`);
@@ -834,6 +904,7 @@ function summary() {
   L.push('', '## Device eval (`/eval.html`, Run on device)', '');
   L.push(ev.markdown ?? `_not available${ev.n ? ` (${ev.n}/${EXAMPLE_COUNT} done)` : ''}_`);
   if (ev.wallMs) L.push('', `Wall time of the run: ${secs(ev.wallMs)} s.`);
+  if (ev.nano) L.push('', `Gemini Nano calls (measured in the page): ${JSON.stringify(ev.nano)}`);
   if (R.problems.length || R.fatal) L.push('', '## Problems', '', ...(R.fatal ? [`- FATAL: ${R.fatal}`] : []), ...R.problems.map((p) => `- ${p}`));
   if (facts.keyLines?.length) L.push('', '<details><summary>chrome://on-device-internals key lines</summary>', '', '```', ...facts.keyLines, '```', '', '</details>');
   return L.join('\n') + '\n';
