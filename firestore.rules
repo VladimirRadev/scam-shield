@@ -1,9 +1,60 @@
 rules_version = '2';
 
-// Deny everything by default. Run 2 adds narrowly scoped rules for anonymous,
-// aggregate-only check statistics (no message text is ever stored).
+// Scam Shield stores exactly one document: stats/global, a set of anonymous counters.
+// No message text, quote, URL or user id is ever written. Everything else is denied.
+// The counter list must match STAT_FIELDS in packages/core/src/stats.ts (a unit test checks it).
+// Rules tests: npm run test:rules (Firestore emulator, Java 21).
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function counters() {
+      return ['checks', 'onDevice', 'cloudRedacted', 'heuristicsOnly', 'verdict_scam', 'verdict_suspicious', 'verdict_safe', 'cat_fake_recruiter', 'cat_malware_task', 'cat_wallet_drainer', 'cat_advance_fee', 'cat_fake_invoice', 'cat_phishing', 'cat_tech_support', 'cat_investment_romance', 'cat_off_platform_lure', 'cat_lookalike_domain', 'cat_other', 'cat_none'];
+    }
+
+    // ---- create: the first check creates the document, every counter is 0 or 1.
+    function zeroOrOne(k) {
+      return !(k in request.resource.data) || (request.resource.data[k] is int && request.resource.data[k] in [0, 1]);
+    }
+
+    function validCreate() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(counters()) && d.keys().hasAll(['checks'])
+        && zeroOrOne('checks') && zeroOrOne('onDevice') && zeroOrOne('cloudRedacted') && zeroOrOne('heuristicsOnly')
+        && zeroOrOne('verdict_scam') && zeroOrOne('verdict_suspicious') && zeroOrOne('verdict_safe')
+        && zeroOrOne('cat_fake_recruiter') && zeroOrOne('cat_malware_task') && zeroOrOne('cat_wallet_drainer')
+        && zeroOrOne('cat_advance_fee') && zeroOrOne('cat_fake_invoice') && zeroOrOne('cat_phishing')
+        && zeroOrOne('cat_tech_support') && zeroOrOne('cat_investment_romance') && zeroOrOne('cat_off_platform_lure')
+        && zeroOrOne('cat_lookalike_domain') && zeroOrOne('cat_other') && zeroOrOne('cat_none');
+    }
+
+    // ---- update: one check = 'checks' + one route + one verdict + one category, each exactly +1.
+    function bumped(changed, k) {
+      return !(k in changed)
+        || (request.resource.data.get(k, null) is int && request.resource.data[k] == resource.data.get(k, 0) + 1);
+    }
+
+    function validUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return request.resource.data.keys().hasOnly(counters())
+        && changed.hasOnly(counters()) && changed.hasAll(['checks']) && changed.size() == 4
+        && changed.intersection(['onDevice', 'cloudRedacted', 'heuristicsOnly'].toSet()).size() == 1
+        && changed.intersection(['verdict_scam', 'verdict_suspicious', 'verdict_safe'].toSet()).size() == 1
+        && bumped(changed, 'checks') && bumped(changed, 'onDevice') && bumped(changed, 'cloudRedacted') && bumped(changed, 'heuristicsOnly')
+        && bumped(changed, 'verdict_scam') && bumped(changed, 'verdict_suspicious') && bumped(changed, 'verdict_safe')
+        && bumped(changed, 'cat_fake_recruiter') && bumped(changed, 'cat_malware_task') && bumped(changed, 'cat_wallet_drainer')
+        && bumped(changed, 'cat_advance_fee') && bumped(changed, 'cat_fake_invoice') && bumped(changed, 'cat_phishing')
+        && bumped(changed, 'cat_tech_support') && bumped(changed, 'cat_investment_romance') && bumped(changed, 'cat_off_platform_lure')
+        && bumped(changed, 'cat_lookalike_domain') && bumped(changed, 'cat_other') && bumped(changed, 'cat_none');
+    }
+
+    match /stats/global {
+      // Any signed-in user (anonymous Auth is enough) may read the totals and add one check.
+      allow get: if request.auth != null;
+      allow create: if request.auth != null && validCreate();
+      allow update: if request.auth != null && resource != null && validUpdate();
+      // list and delete are never allowed.
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
