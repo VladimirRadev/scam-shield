@@ -310,12 +310,12 @@ export async function runQuickCheck(text: string, deps: QuickCheckDeps): Promise
     } catch (e) {
       deviceFailed = true;
       deps.onDeviceFailure?.(e);
-      note = `On-device model failed (${errMsg(e)}); used the cloud model with redacted text.`;
+      note = `On-device model failed (${errMsg(e)})`;
     }
   }
 
   if (deviceFailed && deps.allowCloudFallback === false) {
-    return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: null, note: note ?? 'On-device model is not working on this device.' });
+    return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: null, note: `${note ?? 'On-device model is not working on this device'}; showing the local heuristic check only.` });
   }
 
   // From here on only REDACTED text is used.
@@ -335,12 +335,12 @@ export async function runQuickCheck(text: string, deps: QuickCheckDeps): Promise
       backend: onDevice ? 'on-device' : 'cloud-redacted',
       latencyMs: now() - t0,
       sentText,
-      note,
+      note: note ? `${note}; used the ${onDevice ? 'on-device' : 'cloud'} model with redacted text.` : null,
       truncated: built.truncated,
       modelSawRedacted: true,
     });
   } catch (e) {
-    const msg = `${note ? `${note} ` : ''}Model unavailable (${errMsg(e)}); showing the local heuristic check only.`;
+    const msg = `${note ? `${note}. ` : ''}Model unavailable (${errMsg(e)}); showing the local heuristic check only.`;
     return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: null, note: msg });
   }
 }

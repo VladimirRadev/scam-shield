@@ -190,6 +190,16 @@ describe('runQuickCheck() privacy routing', () => {
     expect(generate).toHaveBeenCalledTimes(1);
     expect(r.backend).toBe('heuristics-only');
     expect(r.bytesSent).toBe(0);
+    // The note must not claim a cloud call that never happened.
+    expect(r.note).toMatch(/device busy/);
+    expect(r.note).not.toMatch(/cloud model/);
+  });
+
+  it('says in the note when a failed on-device call was retried in the cloud', async () => {
+    const generate = vi.fn().mockRejectedValueOnce(new Error('device busy')).mockResolvedValueOnce({ text: SCAM_VERDICT, source: 'cloud' });
+    const r = await runQuickCheck(PHISH, { onDeviceAvailable: true, generate, now });
+    expect(r.backend).toBe('cloud-redacted');
+    expect(r.note).toMatch(/device busy.*used the cloud model with redacted text/);
   });
 
   it('falls back to heuristics-only when every model call fails', async () => {
