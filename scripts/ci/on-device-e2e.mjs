@@ -13,7 +13,8 @@
  *
  * Dependency-free: Node 24 global fetch + WebSocket. Environment:
  *   CDP_BASE (http://127.0.0.1:9222), TARGET_URL, OUT_DIR, PROFILE_DIR, MODEL (default|gemma4),
- *   RECORD_DEMO (true|false), E2E_DRY=1 (keep going without a working Nano: plumbing test only).
+ *   RECORD_DEMO (true|false), RUN_EVAL (true|false: false skips the ~25 min eval run),
+ *   E2E_DRY=1 (keep going without a working Nano: plumbing test only).
  */
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
@@ -27,6 +28,7 @@ const OUT = resolve(env.OUT_DIR || 'e2e-out');
 const PROFILE = env.PROFILE_DIR || 'D:\\chrome-profile';
 const MODEL = env.MODEL || 'default';
 const RECORD = (env.RECORD_DEMO ?? 'true') !== 'false';
+const RUN_EVAL = (env.RUN_EVAL || 'true') !== 'false';
 const DRY = env.E2E_DRY === '1';
 const IS_WIN = process.platform === 'win32';
 const VIEW = { width: 1366, height: 900 };
@@ -829,6 +831,7 @@ async function demo(app) {
     await sleep(1200);
     mark('check recruiter message');
     const r1 = await runCheck(app, { smooth: true });
+    mark('result recruiter message');
     await sleep(2000);
     mark('scroll through reasons');
     await frameResult(app, true);
@@ -848,6 +851,7 @@ async function demo(app) {
       await sleep(900);
       mark(`check ${id}`);
       results.push(await runCheck(app, { smooth: true }));
+      mark(`result ${id}`);
       await sleep(1500);
       await frameResult(app, true);
       await sleep(2500);
@@ -902,7 +906,7 @@ function summary() {
   for (const s of R.phases.shots?.items ?? []) L.push(`- Screenshot \`${s.file}\`: ${s.verdict} · ${s.provenance}`);
   if (R.phases.demo) L.push(`- Demo recording: ${R.phases.demo.frames} frames over ${R.phases.demo.durationS} s (frames/frames.json, frames/frames.ffconcat)`);
   L.push('', '## Device eval (`/eval.html`, Run on device)', '');
-  L.push(ev.markdown ?? `_not available${ev.n ? ` (${ev.n}/${EXAMPLE_COUNT} done)` : ''}_`);
+  L.push(ev.markdown ?? (RUN_EVAL ? `_not available${ev.n ? ` (${ev.n}/${EXAMPLE_COUNT} done)` : ''}_` : '_skipped (RUN_EVAL=false)_'));
   if (ev.wallMs) L.push('', `Wall time of the run: ${secs(ev.wallMs)} s.`);
   if (ev.nano) L.push('', `Gemini Nano calls (measured in the page): ${JSON.stringify(ev.nano)}`);
   if (R.problems.length || R.fatal) L.push('', '## Problems', '', ...(R.fatal ? [`- FATAL: ${R.fatal}`] : []), ...R.problems.map((p) => `- ${p}`));
@@ -913,7 +917,7 @@ function summary() {
 // ------------------------------------------------------------------ main
 
 async function main() {
-  log(`target ${TARGET}, model ${MODEL}, record demo ${RECORD}, out ${OUT}, profile ${PROFILE}${DRY ? ', DRY' : ''}`);
+  log(`target ${TARGET}, model ${MODEL}, record demo ${RECORD}, run eval ${RUN_EVAL}, out ${OUT}, profile ${PROFILE}${DRY ? ', DRY' : ''}`);
   if (env.GITHUB_RUN_ID) R.runUrl = `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`;
   R.machine = machineFacts();
   save();
@@ -932,7 +936,8 @@ async function main() {
     await ensureModel(app);
     await dumpInternals('after-download');
     await smoke(app);
-    await evalDevice(app);
+    if (RUN_EVAL) await evalDevice(app);
+    else log('eval: skipped (RUN_EVAL=false)');
     await screenshots(app);
     if (RECORD) await demo(app);
   } catch (e) {
