@@ -181,3 +181,34 @@ describe('redact(): recovery phrases', () => {
     expect(redact(t).text).toBe(t);
   });
 });
+
+describe('redact(): private keys', () => {
+  const HEX = '4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318';
+
+  it.each([
+    [`private key: ${HEX}`, 'private key: [PRIVATE_KEY]'],
+    [`my key is 0x${HEX}`, 'my key is [PRIVATE_KEY]'],
+    [`here it is ${HEX} thanks`, 'here it is [PRIVATE_KEY] thanks'],
+    ['WIF 5HueCGU8rMjxEXxiPuD5BDku4MkFqeZyd4dZ1jvhTVqvbTLvyTJ', 'WIF [PRIVATE_KEY]'],
+    ['key KwdMAjGmerYanjeui5SHS7JkmpZvVipYvB2LJGU1ZxJwYvP98617 ok', 'key [PRIVATE_KEY] ok'],
+    [
+      'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi',
+      '[PRIVATE_KEY]',
+    ],
+    [
+      'Phantom export: 4Z7cXSyeFR8wNGMVXUE1TwtKn5D5Vu7FzEv69dokLv7KrQk7h6pu4LF8ZRR9yQBhc7uSM6RTTZtU1fmaxiNrxXrs',
+      'Phantom export: [PRIVATE_KEY]',
+    ],
+  ])('masks %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it('masks an extended public key as a crypto address, not as a private key', () => {
+    const r = redact('xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8');
+    expect(r.text).toBe('[CRYPTO_ADDRESS]');
+  });
+
+  it('keeps a 0x transaction hash without a key word a crypto address', () => {
+    expect(redact(`tx 0x${HEX} confirmed`).text).toBe('tx [CRYPTO_ADDRESS] confirmed');
+  });
+});

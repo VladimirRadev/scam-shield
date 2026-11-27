@@ -22,19 +22,20 @@ interface Candidate {
 const PRIORITY: Record<RedactionKind, number> = {
   url: 0,
   seed: 1,
-  crypto: 2,
-  iban: 3,
-  card: 4,
-  cvv: 5,
-  email: 6,
-  phone: 7,
-  street: 8,
-  name: 9,
+  key: 2,
+  crypto: 3,
+  iban: 4,
+  card: 5,
+  cvv: 6,
+  email: 7,
+  phone: 8,
+  street: 9,
+  name: 10,
 };
 
 /** Placeholders this module produces; never redact inside them (makes redact idempotent). */
 const PLACEHOLDER_RE =
-  /\[(?:EMAIL@[^\]\s]*|PHONE|IBAN|CARD|CVV|CRYPTO_ADDRESS|SEED_PHRASE|STREET_ADDRESS|NAME|URL:[^\]\s]*)\]/g;
+  /\[(?:EMAIL@[^\]\s]*|PHONE|IBAN|CARD|CVV|PRIVATE_KEY|CRYPTO_ADDRESS|SEED_PHRASE|STREET_ADDRESS|NAME|URL:[^\]\s]*)\]/g;
 
 // ------------------------------------------------------------------ detectors
 
@@ -174,7 +175,35 @@ function cvvs(text: string): Candidate[] {
   return out;
 }
 
+const B58 = '[1-9A-HJ-NP-Za-km-z]';
+/** A word about keys shortly before a 0x-prefixed 64-hex value makes it a private key, not a tx hash. */
+const KEY_CONTEXT_RE = /\b(?:private|secret|priv)[ _-]?key|\bprivkey\b|\bkey\b/i;
+
+function keys(text: string): Candidate[] {
+  const out: Candidate[] = [];
+  const push = (start: number, end: number) => out.push({ kind: 'key', start, end, replacement: '[PRIVATE_KEY]' });
+  // 64 hex characters: an EVM / raw private key. With 0x and no key word it may be a tx hash (crypto).
+  for (const m of text.matchAll(/\b(?:0x)?[a-fA-F0-9]{64}\b/g)) {
+    if (m[0].startsWith('0x') && !KEY_CONTEXT_RE.test(text.slice(Math.max(0, m.index - 40), m.index))) continue;
+    push(m.index, m.index + m[0].length);
+  }
+  const base58 = [
+    new RegExp(`\\b5${B58}{50}\\b`, 'g'), // WIF, uncompressed
+    new RegExp(`\\b[KL]${B58}{51}\\b`, 'g'), // WIF, compressed
+    new RegExp(`\\b[xyzt]prv${B58}{100,108}\\b`, 'g'), // BIP32 extended private key
+    new RegExp(`\\b${B58}{86,90}\\b`, 'g'), // Solana secret key (Phantom export)
+  ];
+  for (const re of base58) {
+    for (const m of text.matchAll(re)) {
+      if (!/\d/.test(m[0]) || !/[A-Z]/.test(m[0]) || !/[a-z]/.test(m[0])) continue;
+      push(m.index, m.index + m[0].length);
+    }
+  }
+  return out;
+}
+
 const CRYPTO_RES = [
+  new RegExp(`\\b[xyzt]pub${B58}{100,108}\\b`, 'g'), // BIP32 extended public key
   /\b0x[a-fA-F0-9]{40}(?:[a-fA-F0-9]{24})?\b/g, // EVM address or tx hash
   /\b(?:bc1|tb1)[a-z0-9]{25,62}\b/gi, // Bitcoin bech32
   /\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b/g, // Bitcoin legacy
@@ -187,7 +216,7 @@ function cryptos(text: string): Candidate[] {
   CRYPTO_RES.forEach((re, i) => {
     for (const m of text.matchAll(re)) {
       const s = m[0];
-      if (i >= 2) {
+      if (i >= 3) {
         // base58 forms: demand a mix of digits, upper and lower case letters
         if (!/\d/.test(s) || !/[A-Z]/.test(s) || !/[a-z]/.test(s)) continue;
       }
@@ -368,7 +397,7 @@ function names(text: string): Candidate[] {
 
 // ------------------------------------------------------------------ main
 
-const DETECTORS = [urls, seeds, cryptos, ibans, cards, cvvs, emails, phones, streets, names];
+const DETECTORS = [urls, seeds, keys, cryptos, ibans, cards, cvvs, emails, phones, streets, names];
 
 /**
  * Replace personal data with placeholders. Pure, synchronous and deterministic.
@@ -436,6 +465,7 @@ export const REDACTION_LABELS: Record<RedactionKind, string> = {
   iban: 'IBAN',
   card: 'card number',
   cvv: 'card security code',
+  key: 'private key',
   crypto: 'crypto address',
   seed: 'recovery phrase',
   street: 'street address',

@@ -52,6 +52,7 @@ export type RedactionKind =
   | 'iban'
   | 'card'
   | 'cvv'
+  | 'key'
   | 'crypto'
   | 'seed'
   | 'street'
