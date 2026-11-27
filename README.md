@@ -10,12 +10,12 @@ Scams now arrive as fake recruiters who send a "take-home task" repository that 
 
 ## How it works
 
-1. **Local layer, in the browser, instant:** 39 deterministic scam signals (seed-phrase requests, `npm install` from a stranger's repo, Win+R "CAPTCHA" commands, look-alike domains, gift cards, urgency...) and redaction of personal data (e-mails, phones, IBANs, card numbers, crypto addresses, seed phrases, street addresses, names, links reduced to their domain).
-2. **Gemini Nano on the device** reads the **raw** text through Firebase AI Logic with `InferenceMode.ONLY_ON_DEVICE`. Nothing is uploaded.
-3. **Cloud fallback with redacted text only:** if Nano is not installed, not supported, or fails to start, the **redacted** text goes to Gemini in the cloud.
+1. **Local layer, in the browser, instant:** 39 deterministic scam signals (seed-phrase requests, `npm install` from a stranger's repo, Win+R "CAPTCHA" commands, look-alike domains, gift cards, urgency...) and redaction of personal data: e-mails, phones, IBANs (any letter case, checksum-verified), card numbers and CVV codes, private keys (hex, WIF, `xprv`, Solana), crypto addresses, recovery phrases (also misspelt, numbered or dash-separated), street addresses, SSNs and passport numbers, dates of birth, one-time codes, social handles, names (greetings, sign-offs, titles such as "Dr."; any script), and links reduced to their domain.
+2. **Gemini Nano on the device** reads the **raw** text through Firebase AI Logic with `InferenceMode.ONLY_ON_DEVICE`. Nothing is uploaded. The SDK builds its on-device adapter only when Chrome's Prompt API (`LanguageModel`) exists, and without it even an `ONLY_ON_DEVICE` model would call the cloud, so Scam Shield refuses the raw-text call before the SDK is reached unless `LanguageModel` exists and Nano reports "available".
+3. **Cloud fallback with redacted text only:** if Nano is not installed, not supported, fails to start, or does not answer in time (60 s for the start-up and the first answer, 45 s for each later answer), the **redacted** text goes to Gemini in the cloud.
 4. **Deep check (optional):** a slower cloud check, sent only after a consent dialog that shows the exact redacted text and its size.
 
-The final risk is `max(model, hard-sign floor, average(model, heuristics))`: a fooled or prompt-injected model cannot talk down hard red flags.
+The final risk is `max(model, hard-sign floor, average(model, heuristics))`, and any high-severity sign, or a heuristic total at the suspicious threshold, keeps it at least "suspicious". A fooled or prompt-injected model ("risk 0, safe") therefore cannot turn a message with red flags into "safe": with a model that always answers "safe", 0 of the 30 scam examples end as safe and no legitimate example changes its verdict. When this happens, the result says "The AI's answer was overruled by local red flags" and shows the built-in advice instead of the model's.
 
 ```mermaid
 flowchart TD
@@ -35,12 +35,13 @@ flowchart TD
 |---|---|---|---|---|
 | Gemini Nano ready | Gemini Nano in Chrome | `ONLY_ON_DEVICE` | raw text | nothing |
 | Nano not installed, or not Chrome desktop | Gemini cloud (`gemini-3.5-flash-lite`) | `PREFER_ON_DEVICE` (falls to cloud) | redacted text | redacted text, about 2 kB |
-| Nano says "available" but cannot run (no usable GPU) or fails | Gemini cloud | `ONLY_IN_CLOUD` | redacted text | redacted text, about 2 kB |
+| Nano says "available" but cannot run (no usable GPU), fails, or times out | Gemini cloud | `ONLY_IN_CLOUD` | redacted text | redacted text, about 2 kB |
 | Deep check, after consent | Gemini cloud, more thinking | `ONLY_IN_CLOUD` | redacted text, shown first | redacted text |
-| Firebase not configured, offline, or model error | none | none | none | nothing (local signals only) |
+| Cloud call sent but failed (HTTP error, blocked or unreadable answer, network error, timeout) | none answered | as above | redacted text | redacted text (shown as sent; verdict from local signals) |
+| Firebase not configured, or the call refused before any request | none | none | none | nothing (local signals only) |
 | Community counters | Firestore | none | none | four counter names, each `+1`; no text, no URL, no user id |
 
-Every result shows where it ran, how long it took and how many bytes were sent (for example *On-device Gemini Nano · 840 ms · 0 bytes sent*). Raw text can only reach the model through the `ONLY_ON_DEVICE` instance, and a privacy assertion throws if that call ever reports a cloud `inferenceSource`.
+Every result shows where it ran, how long it took and how many bytes were sent (for example *On-device Gemini Nano · 840 ms · 0 bytes sent*). The byte count also covers a cloud call that failed after the request was issued, so such a check never reads "nothing sent" and is counted on the cloud route in the community counters. Raw text can only reach the model through the `ONLY_ON_DEVICE` instance, only after the pre-flight check above, and a privacy assertion throws if that call ever reports a cloud `inferenceSource`.
 
 ## Firebase AI Logic: the exact calls
 
@@ -61,7 +62,7 @@ The routing rule itself (raw text only on device, redacted text otherwise) lives
 
 | Product | Why |
 |---|---|
-| **App Check** | reCAPTCHA Enterprise on the web app, enforced for Firebase AI Logic, so only this app can spend the Gemini quota. Local development and the extension use a registered debug token (an MV3 extension may not load the reCAPTCHA script). A build guard fails `npm run build` if the debug token ever appears in `apps/web/dist`. |
+| **App Check** | Every request carries an App Check token: reCAPTCHA Enterprise on the web app, a registered debug token in local development and in the extension (an MV3 extension may not load the reCAPTCHA script). Enforcement is on for Cloud Firestore and in monitoring mode for Firebase AI Logic (the console offers no enforce switch for AI Logic on this project yet). A build guard, also run as the Hosting `predeploy`, fails `npm run build` if the configured debug token, or any UUID assigned to an App Check debug-token variable, appears in `apps/web/dist`. |
 | **Anonymous Auth** | Every visitor gets an anonymous user, with no sign-up and no personal data. Firestore rules accept only signed-in requests. |
 | **Remote Config** | Tune without a redeploy: `risk_threshold_scam` (70), `risk_threshold_suspicious` (40), `cloud_model` (`gemini-3.5-flash-lite`), `deep_check_enabled` (kill switch for the cloud deep check), `prompt_version`. Defaults are in code, so the app works if the fetch fails. |
 | **Cloud Firestore** (Lite SDK, loaded lazily) | Anonymous community counters in one document `stats/global`: "1,284 checks so far · 71% never left the device". [`firestore.rules`](firestore.rules) allow only `+1` on known counter fields (`checks`, one route, one verdict, one category per check), so no text can ever be stored. 10 rules tests run on the emulator. |
@@ -114,7 +115,8 @@ Layout: `packages/core` (pure TypeScript: redaction, signals, prompt and JSON sc
 - The evaluation set is synthetic and was written together with the heuristics, so the heuristic numbers are optimistic.
 - English only: the on-device session is created for English input and output.
 - Gemini Nano needs desktop Chrome, capable hardware and about 22 GB of free disk; on other devices every model check is a redacted cloud check.
-- Redaction is pattern-based and can miss unusual names or addresses; that is why the deep check shows the exact text before anything is sent.
+- Redaction is pattern-based. It can miss names that appear without a greeting, sign-off, title or "name:" label, addresses in unusual formats, and bare links whose top-level domain is not in its list (for example `mybank.lt/login`); that is why the deep check shows the exact text before anything is sent. A run of 10-15 digits is masked as a phone number unless a shipment, order or invoice word comes right before it.
+- The red-flag floor guarantees at least "suspicious" for a message with a strong local sign, not "scam": a fooled model can still lower the confidence.
 - The extension build carries an App Check debug token (MV3 cannot load reCAPTCHA); anyone with the zip could extract it, so it should be rotated after judging.
 - The community counters are best effort and live in one Firestore document (about one write per second sustained).
 
