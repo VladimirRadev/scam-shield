@@ -19,6 +19,10 @@ on:
         description: Record the scripted demo flow (screencast frames)
         type: boolean
         default: true
+      run_eval:
+        description: Run the 50-example device eval (~25 min on the CPU backend)
+        type: boolean
+        default: true
       runner:
         description: Windows runner image
         type: choice
@@ -40,6 +44,7 @@ jobs:
       TARGET_URL: ${{ inputs.target_url }}
       MODEL: ${{ inputs.model }}
       RECORD_DEMO: ${{ inputs.record_demo }}
+      RUN_EVAL: ${{ inputs.run_eval }}
       OUT_DIR: ${{ github.workspace }}\e2e-out
       CDP_BASE: http://127.0.0.1:9222
     steps:
