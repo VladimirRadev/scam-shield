@@ -1,4 +1,4 @@
-import { CATEGORY_LABELS, type Backend, type CheckResult, type Verdict } from '@scamshield/core';
+import { CATEGORY_LABELS, stayedOnDeviceShare, type Backend, type CheckResult, type CommunityStats, type Verdict } from '@scamshield/core';
 
 export function formatMs(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)} ms`;
@@ -37,4 +37,14 @@ export function categoryLabel(r: Pick<CheckResult, 'category' | 'verdict'>): str
 /** Text for the screen-reader live region. */
 export function announce(r: CheckResult): string {
   return `${VERDICT_TITLE[r.verdict]}. Risk ${r.risk} out of 100. ${categoryLabel(r)}. ${provenance(r)}.`;
+}
+
+/** "1,284 checks so far · 71% never left the device", or null before the first check. */
+export function communityLine(s: CommunityStats | null): string | null {
+  if (!s || s.checks <= 0) return null;
+  const share = stayedOnDeviceShare(s) ?? 0;
+  let pct = Math.round(share * 100);
+  if (pct === 100 && share < 1) pct = 99;
+  if (pct === 0 && share > 0) pct = 1;
+  return `${s.checks.toLocaleString('en-US')} check${s.checks === 1 ? '' : 's'} so far · ${pct}% never left the device`;
 }

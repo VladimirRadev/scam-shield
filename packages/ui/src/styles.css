@@ -310,6 +310,28 @@ code {
   color: var(--cloud);
 }
 
+.ss-community {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+  min-height: 1.5em;
+  margin: 14px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+.ss-community-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--device);
+  box-shadow: 0 0 0 3px var(--device-soft);
+}
+.ss-community-note {
+  color: var(--muted);
+}
+
 .ss-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);

@@ -1,9 +1,9 @@
 import { Component, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { analyzeLocal, SIGNAL_DEFINITIONS, type CheckResult, type Example, type PreparedDeepCheck } from '@scamshield/core';
+import { addCheckToStats, analyzeLocal, SIGNAL_DEFINITIONS, type CheckResult, type CommunityStats, type Example, type PreparedDeepCheck } from '@scamshield/core';
 import type { ScamShieldAI } from '@scamshield/ai';
 import { ConsentDialog } from './ConsentDialog';
 import { ExampleChips } from './Examples';
-import { announce } from './format';
+import { announce, communityLine } from './format';
 import { IconArrow, IconChip, IconCloud, IconList, IconLock, IconMoon, IconSun, ShieldMark } from './icons';
 import { ModelStatusPanel, useModelState } from './ModelStatus';
 import { ResultCard } from './ResultCard';
@@ -65,6 +65,22 @@ function PrivacySteps() {
   );
 }
 
+/** Anonymous totals from Firestore (counters only). Space is reserved so nothing jumps when it loads. */
+function CommunityLine({ stats }: { stats: CommunityStats | null }) {
+  const line = communityLine(stats);
+  return (
+    <p className="ss-community" aria-live="polite">
+      {line && (
+        <>
+          <span className="ss-community-dot" aria-hidden />
+          {line}
+          <span className="ss-community-note"> · anonymous counters, no text stored</span>
+        </>
+      )}
+    </p>
+  );
+}
+
 function EmptyState() {
   return (
     <div className="ss-empty">
@@ -91,12 +107,22 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
   const [prepared, setPrepared] = useState<PreparedDeepCheck | null>(null);
   const [live, setLive] = useState('');
   const [deepEnabled, setDeepEnabled] = useState(ai.config().deepCheckEnabled);
+  const [community, setCommunity] = useState<CommunityStats | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const panel = variant === 'panel';
 
   useEffect(() => {
     void ai.ready.then((c) => setDeepEnabled(c.deepCheckEnabled));
   }, [ai]);
+
+  useEffect(() => {
+    if (panel || !ai.configured) return;
+    let live = true;
+    void ai.communityStats().then((s) => live && setCommunity(s));
+    return () => {
+      live = false;
+    };
+  }, [ai, panel]);
 
   const deferred = useDeferredValue(text);
   const local = useMemo(() => analyzeLocal(deferred), [deferred]);
@@ -105,6 +131,8 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
     (r: CheckResult) => {
       setResult(r);
       setLive(announce(r));
+      // This check was just counted in Firestore; show it without reading the document again.
+      setCommunity((s) => (s ? addCheckToStats(s, r) : s));
       onResult?.(r);
       requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
     },
@@ -270,6 +298,7 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
               Scam Shield checks messages, job offers, e-mails and web pages with Gemini Nano running inside Chrome. The raw text stays on your PC.
             </p>
             <PrivacySteps />
+            <CommunityLine stats={community} />
           </section>
           <div className="ss-grid">
             {input}
