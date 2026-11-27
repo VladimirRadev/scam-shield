@@ -67,7 +67,7 @@ export function buildPrompt(message: string, opts: BuildPromptOptions): BuiltPro
   ];
   if (opts.redacted) {
     lines.push(
-      'Personal data in the MESSAGE was replaced by placeholders: [EMAIL@domain], [PHONE], [IBAN], [CARD], [CRYPTO_ADDRESS], [SEED_PHRASE], [STREET_ADDRESS], [NAME] and [URL:domain] (a link reduced to its domain). Judge the placeholders as the data they replace.',
+      'Personal data in the MESSAGE was replaced by placeholders: [EMAIL@domain], [PHONE], [IBAN], [CARD], [CVV], [PRIVATE_KEY], [CRYPTO_ADDRESS], [SEED_PHRASE], [STREET_ADDRESS], [ID_NUMBER], [DATE_OF_BIRTH], [CODE] (a one-time code), [HANDLE] (a social-media handle), [NAME] and [URL:domain] (a link reduced to its domain). Judge the placeholders as the data they replace.',
     );
   }
   lines.push(

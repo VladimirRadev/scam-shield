@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPrompt, parseModelVerdict, VERDICT_JSON_SCHEMA, MAX_INPUT_CHARS, PROMPT_VERSION } from '../src/prompt';
+import { redact, REDACTION_LABELS } from '../src/redact';
 
 describe('buildPrompt()', () => {
   it('embeds the message between clear delimiters and asks for JSON only', () => {
@@ -14,6 +15,20 @@ describe('buildPrompt()', () => {
   it('tells the model when placeholders replaced personal data', () => {
     const p = buildPrompt('Mail [EMAIL@gmail.com]', { redacted: true });
     expect(p.prompt).toMatch(/placeholder/i);
+  });
+
+  it('names every placeholder the redactor can produce', () => {
+    const all = [
+      'Hi Maria, mail bob@x.io or call +44 7700 900123. IBAN DE89 3704 0044 0532 0130 00, card 4111 1111 1111 1111 CVV 123.',
+      'Key 5HueCGU8rMjxEXxiPuD5BDku4MkFqeZyd4dZ1jvhTVqvbTLvyTJ, send to 0x52908400098527886E0F7030069857D2E4169EE7.',
+      'abandon ability able about above absent absorb abstract absurd abuse access accident',
+      'Deliver to 221B Baker Street. SSN 123-45-6789, DOB 14/03/1988, code 482913, @linda_hr, https://evil.top/x',
+    ].join('\n');
+    const r = redact(all);
+    const placeholders = new Set(r.redactions.map((x) => x.replacement.replace(/^\[EMAIL@.*\]$/, '[EMAIL@domain]').replace(/^\[URL:.*\]$/, '[URL:domain]')));
+    expect(placeholders.size).toBe(Object.keys(REDACTION_LABELS).length);
+    const instructions = buildPrompt(r.text, { redacted: true }).prompt.split('<<<MESSAGE')[0]!;
+    for (const ph of placeholders) expect(instructions, ph).toContain(ph);
   });
 
   it('truncates very long input', () => {

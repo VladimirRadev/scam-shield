@@ -56,6 +56,10 @@ export type RedactionKind =
   | 'crypto'
   | 'seed'
   | 'street'
+  | 'id'
+  | 'dob'
+  | 'code'
+  | 'handle'
   | 'url'
   | 'name';
 

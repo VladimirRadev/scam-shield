@@ -28,14 +28,18 @@ const PRIORITY: Record<RedactionKind, number> = {
   card: 5,
   cvv: 6,
   email: 7,
-  phone: 8,
-  street: 9,
-  name: 10,
+  id: 8,
+  dob: 9,
+  code: 10,
+  phone: 11,
+  handle: 12,
+  street: 13,
+  name: 14,
 };
 
 /** Placeholders this module produces; never redact inside them (makes redact idempotent). */
 const PLACEHOLDER_RE =
-  /\[(?:EMAIL@[^\]\s]*|PHONE|IBAN|CARD|CVV|PRIVATE_KEY|CRYPTO_ADDRESS|SEED_PHRASE|STREET_ADDRESS|NAME|URL:[^\]\s]*)\]/g;
+  /\[(?:EMAIL@[^\]\s]*|PHONE|IBAN|CARD|CVV|PRIVATE_KEY|CRYPTO_ADDRESS|SEED_PHRASE|STREET_ADDRESS|ID_NUMBER|DATE_OF_BIRTH|CODE|HANDLE|NAME|URL:[^\]\s]*)\]/g;
 
 // ------------------------------------------------------------------ detectors
 
@@ -434,9 +438,59 @@ function names(text: string): Candidate[] {
   return out;
 }
 
+/** Push capture group 1 of every match as one candidate. */
+function group1(text: string, re: RegExp, kind: RedactionKind, replacement: string, accept: (v: string) => boolean = () => true): Candidate[] {
+  const out: Candidate[] = [];
+  for (const m of text.matchAll(re)) {
+    const idx = m.indices?.[1];
+    if (idx && m[1] && accept(m[1])) out.push({ kind, start: idx[0], end: idx[1], replacement });
+  }
+  return out;
+}
+
+const SSN_RES = [
+  /\b(\d{3}-\d{2}-\d{4})\b/dg,
+  /\b(?:SSN|social security(?: number| no\.?)?)\b[\s:#.-]*(?:is\s+)?(\d{3}[ -]?\d{2}[ -]?\d{4})\b/dgi,
+];
+const PASSPORT_RE = /\bpassport\b(?:\s+(?:no\.?|number|num\.?|nr\.?|#|id))?[\s:#.-]*(?:is\s+)?([A-Z0-9]{6,12})\b/dgi;
+
+function ids(text: string): Candidate[] {
+  return [
+    ...SSN_RES.flatMap((re) => group1(text, re, 'id', '[ID_NUMBER]')),
+    ...group1(text, PASSPORT_RE, 'id', '[ID_NUMBER]', (v) => (v.match(/\d/g)?.length ?? 0) >= 4),
+  ];
+}
+
+const MONTHS = 'Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
+const DATE = `\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|\\d{4}[./-]\\d{1,2}[./-]\\d{1,2}|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${MONTHS})\\.?,?\\s+\\d{4}|(?:${MONTHS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+\\d{4}`;
+/** A date right after "DOB", "date of birth", "birthday" or "born (on)". */
+const DOB_RE = new RegExp(`(?:\\bDOB\\b|\\bD\\.O\\.B\\.?|\\bdate of birth\\b|\\bbirth ?date\\b|\\bbirthday\\b|\\bborn(?: on)?\\b)[\\s:.,-]*(?:is\\s+)?(${DATE})(?![\\w/.-]\\d)`, 'dgi');
+
+function dobs(text: string): Candidate[] {
+  return group1(text, DOB_RE, 'dob', '[DATE_OF_BIRTH]');
+}
+
+const CODE_WORDS = 'code|OTP|passcode|PIN|verification|one[- ]time (?:password|code)|2FA|TAN';
+/** 4-8 digits shortly after (or right before) a code word: one-time and verification codes. */
+const CODE_RES = [
+  new RegExp(`\\b(?:${CODE_WORDS})\\b[^.\\n\\d]{0,30}?\\b(\\d{4,8})\\b(?!-\\w)`, 'dgi'),
+  new RegExp(`\\b(\\d{4,8})\\b(?=[^.\\n\\d]{0,20}\\b(?:${CODE_WORDS})\\b)`, 'dgi'),
+];
+
+function codes(text: string): Candidate[] {
+  return CODE_RES.flatMap((re) => group1(text, re, 'code', '[CODE]'));
+}
+
+/** Social handles ("@linda_hr"). The platform word next to it stays; e-mails and npm scopes do not match. */
+const HANDLE_RE = /(?<![\w.@/])(@[A-Za-z0-9_](?:[A-Za-z0-9_.]{0,30}[A-Za-z0-9_])?)(?![\w@/])/dg;
+
+function handles(text: string): Candidate[] {
+  return group1(text, HANDLE_RE, 'handle', '[HANDLE]');
+}
+
 // ------------------------------------------------------------------ main
 
-const DETECTORS = [urls, seeds, keys, cryptos, ibans, cards, cvvs, emails, phones, streets, names];
+const DETECTORS = [urls, seeds, keys, cryptos, ibans, cards, cvvs, emails, ids, dobs, codes, phones, handles, streets, names];
 
 /**
  * Replace personal data with placeholders. Pure, synchronous and deterministic.
@@ -508,6 +562,10 @@ export const REDACTION_LABELS: Record<RedactionKind, string> = {
   crypto: 'crypto address',
   seed: 'recovery phrase',
   street: 'street address',
+  id: 'ID number',
+  dob: 'date of birth',
+  code: 'one-time code',
+  handle: 'social handle',
   url: 'link (kept domain)',
   name: 'name',
 };

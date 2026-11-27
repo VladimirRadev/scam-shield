@@ -249,3 +249,51 @@ describe('redact(): phone numbers and IBANs', () => {
     expect(redact('ab12 3456 7890 1234 5678 90').counts.iban).toBeUndefined();
   });
 });
+
+describe('redact(): identity numbers, dates of birth, one-time codes and handles', () => {
+  it.each([
+    ['SSN 123-45-6789 for verification', 'SSN [ID_NUMBER] for verification'],
+    ['my social security number is 123 45 6789', 'my social security number is [ID_NUMBER]'],
+    ['ssn: 123456789', 'ssn: [ID_NUMBER]'],
+    ['Passport number: AB1234567', 'Passport number: [ID_NUMBER]'],
+    ['Date of birth: 14/03/1988, passport no. 382910475', 'Date of birth: [DATE_OF_BIRTH], passport no. [ID_NUMBER]'],
+    ['DOB 1988-03-14', 'DOB [DATE_OF_BIRTH]'],
+    ['born on 14 March 1988 in Sofia', 'born on [DATE_OF_BIRTH] in Sofia'],
+    ['Born: March 14, 1988', 'Born: [DATE_OF_BIRTH]'],
+  ])('masks %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it.each([
+    ['Your code is 482913', 'Your code is [CODE]'],
+    ['Your Revolut verification code is 482913. Never share this code.', 'Your Revolut verification code is [CODE]. Never share this code.'],
+    ['482913 is your OTP', '[CODE] is your OTP'],
+    ['OTP: 9921', 'OTP: [CODE]'],
+    ['Enter PIN 4471 at the ATM', 'Enter PIN [CODE] at the ATM'],
+  ])('masks a one-time code near "code", "OTP" or "verification": %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it.each([
+    'Please send a copy of your passport and wait for the code.',
+    'The verification ends on 30 November.',
+    'Code review for PR 311 is done.',
+    'Verification ID: 7731-CF',
+  ])('leaves text without such a number alone: %s', (t) => {
+    expect(redact(t).text).toBe(t);
+  });
+
+  it.each([
+    ['Ping @linda_hr on Telegram', 'Ping [HANDLE] on Telegram'],
+    ['contact our HR manager on Telegram @talenthub_linda to start', 'contact our HR manager on Telegram [HANDLE] to start'],
+    ['@kchen requested your review', '[HANDLE] requested your review'],
+    ['Instagram: @zoe.art.', 'Instagram: [HANDLE].'],
+  ])('masks a social handle but keeps the platform word: %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it('does not take e-mail addresses or npm scopes for handles', () => {
+    expect(redact('mail bob@x.io').text).toBe('mail [EMAIL@x.io]');
+    expect(redact('npm i @types/node').text).toBe('npm i @types/node');
+  });
+});
