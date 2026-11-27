@@ -5,6 +5,6 @@ export { HighlightedText } from './HighlightedText';
 export { ModelStatusPanel, useModelState } from './ModelStatus';
 export { ConsentDialog } from './ConsentDialog';
 export { ExampleChips } from './Examples';
-export { ShieldMark, IconPage } from './icons';
+export { ShieldMark, IconPage, IconChip, IconCloud, IconList, IconSun, IconMoon } from './icons';
 export * from './format';
 export { useTheme } from './theme';
