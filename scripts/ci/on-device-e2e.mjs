@@ -697,16 +697,30 @@ async function screenshots(app) {
 
 // ------------------------------------------------------------------ f. demo
 
+/**
+ * Type `text` on a fixed clock of `delayMs` per character. When the page answers slower than the
+ * clock, the characters that are due are inserted together, so the typing always lasts about
+ * text.length * delayMs. A newline is a real Enter key press.
+ */
 async function typeText(app, text, delayMs = 25) {
-  for (const ch of text) {
-    if (ch === '\n') {
+  const t0 = Date.now();
+  let i = 0;
+  while (i < text.length) {
+    const due = Math.max(i + 1, Math.min(text.length, Math.floor((Date.now() - t0) / delayMs) + 1));
+    let chunk = text.slice(i, due);
+    const nl = chunk.indexOf('\n');
+    if (nl === 0) {
       const key = { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 };
       await app.send('Input.dispatchKeyEvent', { type: 'keyDown', ...key, text: '\r', unmodifiedText: '\r' });
       await app.send('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+      i += 1;
     } else {
-      await app.send('Input.insertText', { text: ch });
+      if (nl > 0) chunk = chunk.slice(0, nl);
+      await app.send('Input.insertText', { text: chunk });
+      i += chunk.length;
     }
-    await sleep(delayMs);
+    const wait = t0 + i * delayMs - Date.now();
+    if (wait > 0) await sleep(wait);
   }
 }
 
@@ -864,6 +878,8 @@ async function main() {
     writeFileSync(join(OUT, 'summary.md'), md);
     console.log(`\n${md}`);
     if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, md);
+    // Close only the tabs this script opened.
+    for (const t of [app, internalsTab]) if (t) await cdp.send('Target.closeTarget', { targetId: t.targetId }).catch(() => undefined);
     cdp.close();
   }
   const failed = Boolean(R.fatal) || R.problems.length > 0;
