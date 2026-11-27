@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  ON_DEVICE_FIRST_CALL_TIMEOUT_MS,
   downloadOnDeviceModel,
   markOnDeviceFailed,
   onDeviceFailureReason,
@@ -62,5 +63,39 @@ describe('on-device status', () => {
     });
     await expect(downloadOnDeviceModel(() => {})).rejects.toThrow(/unable to create a session/);
     expect(await onDeviceStatus()).toBe('failed');
+  });
+});
+
+describe('on-device start-up timeout', () => {
+  beforeEach(() => {
+    resetOnDeviceState();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    delete (globalThis as G).LanguageModel;
+    resetOnDeviceState();
+  });
+
+  it('marks the model failed when the start-up session does not open within 60 s', async () => {
+    stubLanguageModel('available', () => new Promise(() => {}));
+    let status: string | null = null;
+    void onDeviceStatus().then((s) => (status = s));
+    await vi.advanceTimersByTimeAsync(ON_DEVICE_FIRST_CALL_TIMEOUT_MS - 1);
+    expect(status).toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(status).toBe('failed');
+    expect(onDeviceFailureReason()).toMatch(/timed out after 60 s/);
+  });
+
+  it('closes a session that opens after the timeout', async () => {
+    const destroy = vi.fn();
+    let open: (s: unknown) => void = () => {};
+    stubLanguageModel('available', () => new Promise((r) => (open = r)));
+    void onDeviceStatus();
+    await vi.advanceTimersByTimeAsync(ON_DEVICE_FIRST_CALL_TIMEOUT_MS);
+    open({ destroy });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(destroy).toHaveBeenCalled();
   });
 });

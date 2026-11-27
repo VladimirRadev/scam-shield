@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initializeApp } from 'firebase/app';
 import { AIError, AIErrorCode, getAI, GoogleAIBackend, InferenceMode, InferenceSource } from 'firebase/ai';
-import { VERDICT_JSON_SCHEMA } from '@scamshield/core';
+import { runQuickCheck, VERDICT_JSON_SCHEMA } from '@scamshield/core';
 import { createModels, hybridParams, OnDeviceUnavailableError, sdkGenerate, type ScamShieldModels } from '../src/models';
-import { ON_DEVICE_CREATE_OPTIONS, resetOnDeviceState } from '../src/on-device';
+import {
+  ON_DEVICE_CALL_TIMEOUT_MS,
+  ON_DEVICE_CREATE_OPTIONS,
+  ON_DEVICE_FIRST_CALL_TIMEOUT_MS,
+  OnDeviceTimeoutError,
+  markOnDeviceFailed,
+  onDeviceFailureReason,
+  onDeviceStatus,
+  resetOnDeviceState,
+} from '../src/on-device';
 
 type G = { LanguageModel?: unknown };
 
@@ -140,5 +149,64 @@ describe('sdkGenerate() tells the engine whether a cloud request left the device
     const models = { quick: refuse, device: refuse, cloud: refuse, deep: refuse } as ScamShieldModels;
     const e = failure(await sdkGenerate(models)('redacted prompt', 'hybrid').catch((x: unknown) => x));
     expect(e.requestSent).toBe(false);
+  });
+});
+
+describe('sdkGenerate() on-device timeouts', () => {
+  const hanging = () => ({ chromeAdapter: {}, generateContent: vi.fn(() => new Promise(() => {})) }) as never;
+  const answering = (text: string) => deviceModel(text);
+  const cloudAnswer = JSON.stringify({ risk: 90, verdict: 'scam', category: 'phishing', reasons: [], advice: 'x' });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    stubLanguageModel('available');
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('gives the first on-device call 60 s, then marks the device failed', async () => {
+    const device = hanging();
+    const models = { quick: device, device, cloud: device, deep: device } as ScamShieldModels;
+    let err: unknown = null;
+    void sdkGenerate(models, { deviceStatus: async () => 'available' })('raw', 'device').catch((e: unknown) => (err = e));
+    await vi.advanceTimersByTimeAsync(ON_DEVICE_FIRST_CALL_TIMEOUT_MS - 1);
+    expect(err).toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(err).toBeInstanceOf(OnDeviceTimeoutError);
+    expect((err as OnDeviceTimeoutError).requestSent).toBe(false);
+    expect(onDeviceFailureReason()).toMatch(/timed out/);
+  });
+
+  it('gives later on-device calls 45 s each', async () => {
+    const device = answering('{"risk":1}');
+    const models = { quick: device, device, cloud: device, deep: device } as ScamShieldModels;
+    const gen = sdkGenerate(models, { deviceStatus: async () => 'available' });
+    await gen('raw', 'device');
+    (device as unknown as { generateContent: ReturnType<typeof vi.fn> }).generateContent.mockImplementation(() => new Promise(() => {}));
+    let err: unknown = null;
+    void gen('raw', 'device').catch((e: unknown) => (err = e));
+    await vi.advanceTimersByTimeAsync(ON_DEVICE_CALL_TIMEOUT_MS - 1);
+    expect(err).toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(err).toBeInstanceOf(OnDeviceTimeoutError);
+  });
+
+  it('a quick check whose on-device call hangs ends on the redacted cloud route', async () => {
+    const models: ScamShieldModels = {
+      quick: fakeModel(cloudAnswer, InferenceSource.IN_CLOUD),
+      device: hanging(),
+      cloud: fakeModel(cloudAnswer, InferenceSource.IN_CLOUD),
+      deep: fakeModel(cloudAnswer, InferenceSource.IN_CLOUD),
+    };
+    const text = 'Verify your password at https://secure-paypa1.com/login, anna.k@gmail.com';
+    let result: Awaited<ReturnType<typeof runQuickCheck>> | null = null;
+    void runQuickCheck(text, { onDeviceAvailable: true, onDeviceFailure: markOnDeviceFailed, generate: sdkGenerate(models, { deviceStatus: async () => 'available' }) }).then((r) => (result = r));
+    await vi.advanceTimersByTimeAsync(ON_DEVICE_FIRST_CALL_TIMEOUT_MS);
+    expect(result).not.toBeNull();
+    expect(result!.backend).toBe('cloud-redacted');
+    expect(result!.sentText).not.toContain('anna.k@gmail.com');
+    expect(result!.note).toMatch(/timed out/);
+    const cloudCall = (models.cloud as unknown as { generateContent: ReturnType<typeof vi.fn> }).generateContent.mock.calls[0] as unknown as [string];
+    expect(cloudCall[0]).not.toContain('anna.k@gmail.com');
+    expect(await onDeviceStatus()).toBe('failed');
   });
 });

@@ -11,6 +11,10 @@
  * "The device is unable to create a session to run the model"). So "available" is confirmed by
  * creating one real session once per page session; any later on-device failure also marks the
  * model as failed until the page is reloaded.
+ *
+ * Timeouts: a session that does not open within 60 s (the first start may load the model from
+ * disk), or an on-device answer that takes longer than 45 s (60 s for the first call of the page),
+ * marks the model as failed for this page load, so checks go to the redacted cloud route.
  */
 import type { LanguageModelCreateOptions } from 'firebase/ai';
 
@@ -31,8 +35,58 @@ export const ON_DEVICE_CREATE_OPTIONS: LanguageModelCreateOptions = {
   expectedOutputs: [{ type: 'text', languages: ['en'] }],
 };
 
+/** Start-up session, and the first on-device answer of a page load (may load the model from disk). */
+export const ON_DEVICE_FIRST_CALL_TIMEOUT_MS = 60_000;
+/** Every later on-device answer. */
+export const ON_DEVICE_CALL_TIMEOUT_MS = 45_000;
+
+/** Gemini Nano did not answer in time. Nothing left the device. */
+export class OnDeviceTimeoutError extends Error {
+  override readonly name = 'OnDeviceTimeoutError';
+  readonly requestSent = false;
+}
+
 let failure: string | null = null;
 let probe: Promise<boolean> | null = null;
+let warm = false;
+
+/**
+ * Settle like `p`, or reject with `OnDeviceTimeoutError` after `ms`. A value that arrives after
+ * the timeout goes to `onLate` (e.g. to close a session that opened too late).
+ */
+export function withTimeout<T>(p: Promise<T>, ms: number, what: string, onLate?: (value: T) => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      settled = true;
+      reject(new OnDeviceTimeoutError(`${what} timed out after ${Math.round(ms / 1000)} s`));
+    }, ms);
+    p.then(
+      (v) => {
+        if (settled) return onLate?.(v);
+        settled = true;
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e: unknown) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
+/** Time budget of the next on-device answer: 60 s until one answer arrived in this page load, then 45 s. */
+export function onDeviceCallTimeoutMs(): number {
+  return warm ? ON_DEVICE_CALL_TIMEOUT_MS : ON_DEVICE_FIRST_CALL_TIMEOUT_MS;
+}
+
+/** An on-device answer arrived: later answers get the shorter budget. */
+export function markOnDeviceWarm(): void {
+  warm = true;
+}
 
 const message = (e: unknown) => (e instanceof Error ? `${e.name && e.name !== 'Error' ? `${e.name}: ` : ''}${e.message}` : String(e));
 
@@ -50,6 +104,7 @@ export function onDeviceFailureReason(): string | null {
 export function resetOnDeviceState(): void {
   failure = null;
   probe = null;
+  warm = false;
 }
 
 function languageModel(): LanguageModelStatic | null {
@@ -59,8 +114,7 @@ function languageModel(): LanguageModelStatic | null {
 
 /** Create and destroy one session to prove the model really runs here. Cached per page session. */
 function probeSession(lm: LanguageModelStatic): Promise<boolean> {
-  probe ??= lm
-    .create({ ...ON_DEVICE_CREATE_OPTIONS })
+  probe ??= withTimeout(lm.create({ ...ON_DEVICE_CREATE_OPTIONS }), ON_DEVICE_FIRST_CALL_TIMEOUT_MS, 'Gemini Nano start-up', (late) => late.destroy())
     .then((session) => {
       session.destroy();
       return true;

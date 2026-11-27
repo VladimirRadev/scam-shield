@@ -30,7 +30,16 @@ import {
   type HybridParams,
 } from 'firebase/ai';
 import { VERDICT_JSON_SCHEMA, type Generate, type Route } from '@scamshield/core';
-import { ON_DEVICE_CREATE_OPTIONS, onDeviceStatus, type OnDeviceStatus } from './on-device';
+import {
+  markOnDeviceFailed,
+  markOnDeviceWarm,
+  ON_DEVICE_CREATE_OPTIONS,
+  onDeviceCallTimeoutMs,
+  onDeviceStatus,
+  OnDeviceTimeoutError,
+  withTimeout,
+  type OnDeviceStatus,
+} from './on-device';
 
 export interface ScamShieldModels {
   quick: GenerativeModel;
@@ -153,8 +162,19 @@ export function sdkGenerate(models: ScamShieldModels, opts: SdkGenerateOptions =
     if (route === 'device') await assertOnDeviceOnly(models.device, deviceStatus);
     let result: Awaited<ReturnType<GenerativeModel['generateContent']>>;
     try {
-      result = await pick[route].generateContent(prompt);
+      if (route === 'device') {
+        // A hanging Gemini Nano must not block the check: time out, mark it failed for this page
+        // load, and let the engine retry with redacted text in the cloud.
+        result = await withTimeout(models.device.generateContent(prompt), onDeviceCallTimeoutMs(), 'Gemini Nano answer');
+        markOnDeviceWarm();
+      } else {
+        result = await pick[route].generateContent(prompt);
+      }
     } catch (e) {
+      if (e instanceof OnDeviceTimeoutError) {
+        markOnDeviceFailed(e);
+        throw e;
+      }
       throw withRequestSent(e, route !== 'device' && cloudRequestIssued(e));
     }
     const source = result.response.inferenceSource === InferenceSource.ON_DEVICE ? 'on-device' : 'cloud';
