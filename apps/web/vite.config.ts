@@ -16,10 +16,20 @@ export default defineConfig(({ command }) => ({
     outDir: 'dist',
     emptyOutDir: true,
     target: 'es2022',
-    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       // eval.html: the in-browser model evaluation page (not linked from the app).
       input: { main: here('index.html'), eval: here('eval.html') },
+      output: {
+        // Long-lived vendor chunks (React, Firebase) apart from the app code. Firestore is
+        // excluded on purpose: it stays a lazy chunk, loaded only for the community counters.
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /[\\/]node_modules[\\/](?:react|react-dom|scheduler)[\\/]/ },
+            { name: 'firebase', test: /[\\/]node_modules[\\/](?:@firebase[\\/](?!firestore|webchannel-wrapper)|firebase[\\/](?!firestore))/ },
+            { name: 'scamshield', test: /[\\/]packages[\\/](?:core|ai|ui)[\\/]src[\\/]/ },
+          ],
+        },
+      },
     },
   },
   server: { port: 5173, strictPort: false },

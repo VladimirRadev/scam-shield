@@ -118,9 +118,14 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
   useEffect(() => {
     if (panel || !ai.configured) return;
     let live = true;
-    void ai.communityStats().then((s) => live && setCommunity(s));
+    // Not needed for the first paint: load Firestore Lite when the browser is idle.
+    const load = () => void ai.communityStats().then((s) => live && setCommunity(s));
+    const idle = typeof requestIdleCallback === 'function' ? requestIdleCallback(load, { timeout: 3000 }) : null;
+    const timer = idle === null ? setTimeout(load, 1500) : null;
     return () => {
       live = false;
+      if (idle !== null) cancelIdleCallback(idle);
+      if (timer !== null) clearTimeout(timer);
     };
   }, [ai, panel]);
 
