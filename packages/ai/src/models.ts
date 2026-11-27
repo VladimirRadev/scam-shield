@@ -11,6 +11,11 @@
  * - deep   : InferenceMode.ONLY_IN_CLOUD, used after explicit consent with redacted text.
  *
  * The answer's `response.inferenceSource` ("on_device" | "in_cloud") tells which backend ran.
+ *
+ * Raw-text guard: the SDK builds its on-device adapter only when `globalThis.LanguageModel`
+ * exists when the model is created. Without that adapter even an ONLY_ON_DEVICE model sends the
+ * request to the cloud. So `sdkGenerate()` refuses the `device` route (no SDK call, no network)
+ * unless the Prompt API exists, the model has its adapter and `onDeviceStatus()` is "available".
  */
 import {
   getGenerativeModel,
@@ -23,7 +28,7 @@ import {
   type HybridParams,
 } from 'firebase/ai';
 import { VERDICT_JSON_SCHEMA, type Generate, type Route } from '@scamshield/core';
-import { ON_DEVICE_CREATE_OPTIONS } from './on-device';
+import { ON_DEVICE_CREATE_OPTIONS, onDeviceStatus, type OnDeviceStatus } from './on-device';
 
 export interface ScamShieldModels {
   quick: GenerativeModel;
@@ -69,14 +74,45 @@ export function createModels(ai: AI, cloudModel: string): ScamShieldModels {
   };
 }
 
+/** The raw-text route was refused before any SDK call: nothing left the device. */
+export class OnDeviceUnavailableError extends Error {
+  override readonly name = 'OnDeviceUnavailableError';
+  /** Read by the engine: this refusal happened before any request was issued. */
+  readonly requestSent = false;
+}
+
+/** True when the SDK gave this model its Chrome on-device adapter (it did only if LanguageModel existed). */
+export function hasOnDeviceAdapter(model: GenerativeModel): boolean {
+  return Boolean((model as unknown as { chromeAdapter?: unknown }).chromeAdapter);
+}
+
+export interface SdkGenerateOptions {
+  /** Fresh on-device status; defaults to `onDeviceStatus()` (it also reports a session-wide failure). */
+  deviceStatus?: () => Promise<OnDeviceStatus>;
+}
+
+/** Throws `OnDeviceUnavailableError` unless the raw text can only be processed on this device. */
+async function assertOnDeviceOnly(model: GenerativeModel, status: () => Promise<OnDeviceStatus>): Promise<void> {
+  if (typeof (globalThis as { LanguageModel?: unknown }).LanguageModel === 'undefined') {
+    throw new OnDeviceUnavailableError('raw text not sent: this browser has no on-device Prompt API (LanguageModel)');
+  }
+  if (!hasOnDeviceAdapter(model)) {
+    throw new OnDeviceUnavailableError('raw text not sent: the on-device model was created without its on-device adapter');
+  }
+  const s = await status();
+  if (s !== 'available') throw new OnDeviceUnavailableError(`raw text not sent: the on-device model is ${s}`);
+}
+
 /** The engine's `Generate` function, backed by the Firebase AI Logic SDK. */
-export function sdkGenerate(models: ScamShieldModels): Generate {
+export function sdkGenerate(models: ScamShieldModels, opts: SdkGenerateOptions = {}): Generate {
   const pick: Record<Route, GenerativeModel> = { device: models.device, hybrid: models.quick, cloud: models.cloud, deep: models.deep };
+  const deviceStatus = opts.deviceStatus ?? onDeviceStatus;
   return async (prompt, route) => {
+    if (route === 'device') await assertOnDeviceOnly(models.device, deviceStatus);
     const result = await pick[route].generateContent(prompt);
     const source = result.response.inferenceSource === InferenceSource.ON_DEVICE ? 'on-device' : 'cloud';
     if (route === 'device' && source !== 'on-device') {
-      // Cannot happen with ONLY_ON_DEVICE; kept as a hard privacy assertion.
+      // Cannot happen with ONLY_ON_DEVICE and its adapter; kept as a hard privacy assertion.
       throw new Error('privacy guard: raw text route did not run on the device');
     }
     return { text: result.response.text(), source };

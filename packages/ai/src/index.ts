@@ -3,8 +3,6 @@
  * status of the on-device model, model download, quick check and deep check.
  */
 import {
-  analyzeLocal,
-  combine,
   DEFAULT_THRESHOLDS,
   prepareDeepCheck,
   runDeepCheck,
@@ -14,6 +12,7 @@ import {
   type PreparedDeepCheck,
 } from '@scamshield/core';
 import { readEnv, type EnvResult, type ReadEnvOptions, type ScamShieldEnv } from './env';
+import { runEvalCheck, type EvalRoute } from './eval-check';
 import { initFirebase, type FirebaseServices } from './firebase';
 import { createModels, sdkGenerate, type ScamShieldModels } from './models';
 import { downloadOnDeviceModel, markOnDeviceFailed, onDeviceStatus, type OnDeviceStatus } from './on-device';
@@ -23,16 +22,9 @@ import { createStatsClient, type StatsClient } from './stats';
 export * from './env';
 export * from './on-device';
 export * from './remote-config';
-export { hybridParams } from './models';
+export { hybridParams, OnDeviceUnavailableError } from './models';
+export { runEvalCheck, type EvalRoute, type EvalCheckDeps } from './eval-check';
 export { createStatsClient, readCommunityStats, writeCheckStats, statsPayload, type StatsCheck, type StatsClient } from './stats';
-
-/**
- * Fixed routes for the evaluation page (apps/web/eval.html):
- * - `device`: RAW text, InferenceMode.ONLY_ON_DEVICE, never falls back to the cloud;
- * - `cloud`: REDACTED text, InferenceMode.ONLY_IN_CLOUD;
- * - `heuristics`: no model, local signals only.
- */
-export type EvalRoute = 'device' | 'cloud' | 'heuristics';
 
 export interface ScamShieldAI {
   /** False when the Firebase config is missing: checks run on heuristics only. */
@@ -134,19 +126,10 @@ export function createScamShieldAI(rawEnv: Record<string, string | boolean | und
     communityStats: () => stats?.read() ?? Promise.resolve(null),
     async evalCheck(text, route) {
       const m = await getModels();
-      const thresholds = appConfig.thresholds ?? DEFAULT_THRESHOLDS;
-      if (route === 'heuristics') {
-        const t0 = performance.now();
-        const local = analyzeLocal(text);
-        return combine({ text, local, model: null, backend: 'heuristics-only', latencyMs: performance.now() - t0, sentText: null, thresholds });
-      }
+      // The real status: the device route runs only when Gemini Nano is really usable here.
+      const status = m ? await onDeviceStatus() : 'unsupported';
       const generate = m ? sdkGenerate(m) : heuristicsOnly(missingNote);
-      if (route === 'device') {
-        // Raw text through ONLY_ON_DEVICE only; a failure gives a heuristics-only row, never a cloud call.
-        return runQuickCheck(text, { onDeviceAvailable: true, allowCloudFallback: false, onDeviceFailure: () => undefined, generate, thresholds });
-      }
-      // Redacted text through ONLY_IN_CLOUD (the quick-check fallback route).
-      return runQuickCheck(text, { onDeviceAvailable: false, onDeviceFailed: true, generate, thresholds });
+      return runEvalCheck(text, route, { status, generate, thresholds: appConfig.thresholds ?? DEFAULT_THRESHOLDS });
     },
     get services() {
       return services;
