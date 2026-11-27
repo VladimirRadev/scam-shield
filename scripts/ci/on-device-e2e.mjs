@@ -37,8 +37,10 @@ const SMOKE_PROMPT =
   'Is this message a scam? Answer in one short sentence.\n\nMessage: "Hello, this is the official MetaMask support team. Your wallet will be locked. Send us your 12-word recovery phrase within 30 minutes to keep access."';
 
 const EXAMPLES = JSON.parse(readFileSync(new URL('../../packages/core/src/examples.json', import.meta.url), 'utf8'));
+const EXAMPLE_LIST = Array.isArray(EXAMPLES) ? EXAMPLES : EXAMPLES.examples;
+const EXAMPLE_COUNT = EXAMPLE_LIST.length;
 const example = (id) => {
-  const ex = (Array.isArray(EXAMPLES) ? EXAMPLES : EXAMPLES.examples).find((e) => e.id === id);
+  const ex = EXAMPLE_LIST.find((e) => e.id === id);
   if (!ex) throw new Error(`example ${id} not found in examples.json`);
   return ex;
 };
@@ -416,21 +418,41 @@ async function dumpInternals(label) {
   }
 }
 
-/** The lines of the internals dump that matter, plus the performance class if it can be read. */
+/**
+ * The facts of the "Broker State" tab: performance class, crash count, criteria, and the asset
+ * and model tables ("| Name | Version | State | Progress | Error" rows).
+ */
 function internalsFacts(text) {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-  const KEY = /performance class|vram|crash|foundational|model (name|version|state|path)|component|backend|eligib|criteri|gpu|cpu|ram|memory|disk|gemma|nano|download|ready|not ready|status/i;
-  const keyLines = [];
-  lines.forEach((l, i) => {
-    if (KEY.test(l) && l.length < 300) keyLines.push(l.length < 60 && lines[i + 1] && lines[i + 1].length < 120 ? `${l} → ${lines[i + 1]}` : l);
-  });
-  let performanceClass = null;
-  const i = lines.findIndex((l) => /performance class/i.test(l));
-  if (i >= 0) {
-    const m = /performance class\s*[:|]?\s*(.+)$/i.exec(lines[i]);
-    performanceClass = (m?.[1]?.trim() || lines[i + 1] || '').replace(/^[:|\s]+/, '') || null;
-  }
-  return { performanceClass, keyLines: [...new Set(keyLines)].slice(0, 80) };
+  const cells = (l) => l.replace(/^\|\s*/, '').split(/\s*\|\s*/);
+  const row = (key) => lines.map(cells).find((c) => c[0].toLowerCase() === key.toLowerCase())?.slice(1).join(' | ') ?? null;
+  const table = (header) => {
+    const i = lines.findIndex((l) => l.startsWith('|') && cells(l)[0] === 'Name' && cells(l).includes(header));
+    if (i < 0) return [];
+    const head = cells(lines[i]);
+    const out = [];
+    for (const l of lines.slice(i + 1)) {
+      if (!l.startsWith('|')) break;
+      out.push(Object.fromEntries(cells(l).map((v, k) => [head[k] ?? `c${k}`, v])));
+    }
+    return out;
+  };
+  const crash = lines.find((l) => /crash count/i.test(l)) ?? null;
+  const criteria = Object.fromEntries(
+    ['Enough VRAM', 'Device Capable', 'Enough disk space to install', 'Enabled by feature flag', 'Enabled by enterprise policy'].map((k) => [k, row(k)]),
+  );
+  const performanceClass = row('Performance Class') ?? /performance class:\s*(.+)$/im.exec(text)?.[1]?.trim() ?? null;
+  const assets = table('Version');
+  const models = table('Backend Type');
+  const keyLines = [
+    `Performance Class: ${performanceClass}`,
+    crash,
+    ...Object.entries(criteria).map(([k, v]) => `${k}: ${v}`),
+    ...assets.map((a) => `asset ${a.Name} ${a.Version}: ${a.State} ${a.Progress ?? ''} ${a.Error && a.Error !== 'None' ? a.Error : ''}`.trim()),
+    ...models.map((m) => `model ${m.Name}: ${m['Folder Size']} ${m['Backend Type']}`),
+    ...lines.filter((l) => /prompt_api/.test(l)),
+  ].filter(Boolean);
+  return { performanceClass, crash, criteria, assets, models, keyLines };
 }
 
 // ------------------------------------------------------------------ b. model
@@ -524,6 +546,10 @@ async function ensureModel(app) {
 
 async function smoke(app) {
   const P = (R.phases.smoke = { startedAt: iso(), prompt: SMOKE_PROMPT });
+  if (DRY && (await availability(app)) !== 'available') {
+    P.skipped = 'dry run without an installed model (create() would start a download)';
+    return log(`smoke: skipped, ${P.skipped}`);
+  }
   try {
     const r = await app.eval(
       `(async () => { const t0 = performance.now(); const s = await LanguageModel.create(${OPTS}); const t1 = performance.now();
@@ -558,49 +584,53 @@ async function evalDevice(app) {
   );
   P.statusOnPage = status;
   log(`eval page: Gemini Nano status = ${status}`);
+  let route = 'device';
   if (status !== 'available') {
     await dumpInternals('eval-status');
     if (!DRY) throw new Fatal(`eval page reports Gemini Nano as "${status}" (smoke test passed, so the app's start-up probe failed)`);
-    problem(`eval page status ${status}`);
+    // Dry run: the device button would start a model download; exercise the same code on another route.
+    route = 'heuristics';
+    problem(`dry run: eval page status ${status}, running the heuristics route instead`);
   }
-  await app.click(`document.querySelector('button[data-route=device]')`);
-  log('clicked "Run on device" (real mouse event)');
-  await app.waitFor(`document.querySelector('button[data-route=device]').textContent.includes('Running') || !!window.__evalResult?.routes?.device`, {
-    timeoutMs: 60_000,
-    what: 'device run started',
-  });
+  P.route = route;
+  const button = `document.querySelector('button[data-route=${route}]')`;
+  await app.click(button);
+  log(`clicked the ${route} route button (real mouse event)`);
+  await app.waitFor(`${button}.textContent.includes('Running') || !!window.__evalResult?.routes?.${route}`, { timeoutMs: 60_000, what: `${route} run started` });
   const t0 = Date.now();
   let lastLog = 0;
   let st;
   for (;;) {
     await sleep(5000);
-    st = await app.eval(`(() => { const d = window.__evalResult?.routes?.device; const last = d?.rows?.[d.rows.length - 1];
-      return { running: document.querySelector('button[data-route=device]').textContent.includes('Running'),
-        n: d?.summary?.n ?? 0, complete: !!d?.complete, backends: d?.summary?.backends ?? {},
+    st = await app.eval(`(() => { const d = window.__evalResult?.routes?.${route}; const last = d?.rows?.[d.rows.length - 1];
+      return { running: ${button}.textContent.includes('Running'), n: d?.summary?.n ?? 0, complete: !!d?.complete, backends: d?.summary?.backends ?? {},
         error: document.querySelector('.ev-warn[role=alert]')?.textContent ?? null,
         last: last ? { id: last.id, backend: last.backend, ms: Math.round(last.latencyMs), risk: last.risk, note: last.note } : null }; })()`);
     if (Date.now() - lastLog >= 30_000 || !st.running) {
       lastLog = Date.now();
-      log(`eval: ${st.n}/50 done, backends ${JSON.stringify(st.backends)}, last ${JSON.stringify(st.last)}`);
+      log(`eval: ${st.n}/${EXAMPLE_COUNT} done, backends ${JSON.stringify(st.backends)}, last ${JSON.stringify(st.last)}`);
     }
     if (!st.running) break;
     if (Date.now() - t0 > 60 * MIN) {
-      problem('eval device run did not finish within 60 minutes; keeping the partial result');
+      problem('eval run did not finish within 60 minutes; keeping the partial result');
       break;
     }
   }
   P.wallMs = Date.now() - t0;
   const result = await app.eval('window.__evalResult');
-  writeFileSync(join(OUT, 'eval-device.json'), JSON.stringify(result, null, 2));
-  const md = await app.eval(`document.querySelector('textarea[aria-label="Markdown for device"]')?.value ?? window.__evalResult?.routes?.device?.markdown ?? null`);
-  if (md) writeFileSync(join(OUT, 'eval-device.md'), md + '\n');
+  writeFileSync(join(OUT, `eval-${route}.json`), JSON.stringify(result, null, 2));
+  // The text the page's "Copy Markdown for README" button copies.
+  const md = await app.eval(`document.querySelector('textarea[aria-label="Markdown for ${route}"]')?.value ?? null`);
+  if (md) writeFileSync(join(OUT, `eval-${route}.md`), md + '\n');
   await app.screenshot('eval-page.png', { full: true });
-  const s = result?.routes?.device?.summary;
-  Object.assign(P, { complete: !!result?.routes?.device?.complete, n: s?.n ?? 0, backends: s?.backends ?? {}, offRoute: s?.offRoute ?? null, median: s?.latencyMs?.median, p90: s?.latencyMs?.p90, error: st.error, markdown: md });
+  const run = result?.routes?.[route];
+  const s = run?.summary;
+  Object.assign(P, { complete: !!run?.complete, n: s?.n ?? 0, backends: s?.backends ?? {}, offRoute: s?.offRoute ?? null, median: s?.latencyMs?.median, p90: s?.latencyMs?.p90, error: st.error, markdown: md });
   save();
-  log(`eval finished in ${secs(P.wallMs)} s: ${P.n}/50, ${JSON.stringify(P.backends)}, median ${P.median} ms, p90 ${P.p90} ms`);
+  log(`eval finished in ${secs(P.wallMs)} s: ${P.n}/${EXAMPLE_COUNT}, ${JSON.stringify(P.backends)}, median ${P.median} ms, p90 ${P.p90} ms`);
   if (st.error) problem(`eval page error: ${st.error}`);
-  if (!P.complete) problem(`eval device run incomplete: ${P.n}/50`);
+  if (!P.complete) problem(`eval ${route} run incomplete: ${P.n}/${EXAMPLE_COUNT}`);
+  if (route !== 'device') return;
   if (!(P.backends['on-device'] > 0)) problem('no eval example was answered on the device');
   else if (P.offRoute) problem(`${P.offRoute} of ${P.n} eval examples were not answered on the device (see eval-device.json notes)`);
 }
@@ -609,7 +639,7 @@ async function evalDevice(app) {
 
 async function waitModelReady(app, what) {
   try {
-    await app.waitFor(`document.querySelector('.ss-model')?.classList.contains('ss-model-available')`, { timeoutMs: 3 * MIN, what });
+    await app.waitFor(`document.querySelector('.ss-model')?.classList.contains('ss-model-available')`, { timeoutMs: DRY ? 15_000 : 3 * MIN, what });
     return true;
   } catch {
     const cls = await app.eval(`document.querySelector('.ss-model')?.className ?? 'no status panel'`).catch(() => '?');
@@ -788,7 +818,7 @@ function summary() {
   for (const s of R.phases.shots?.items ?? []) L.push(`- Screenshot \`${s.file}\`: ${s.verdict} · ${s.provenance}`);
   if (R.phases.demo) L.push(`- Demo recording: ${R.phases.demo.frames} frames over ${R.phases.demo.durationS} s (frames/frames.json, frames/frames.ffconcat)`);
   L.push('', '## Device eval (`/eval.html`, Run on device)', '');
-  L.push(ev.markdown ?? `_not available${ev.n ? ` (${ev.n}/50 done)` : ''}_`);
+  L.push(ev.markdown ?? `_not available${ev.n ? ` (${ev.n}/${EXAMPLE_COUNT} done)` : ''}_`);
   if (ev.wallMs) L.push('', `Wall time of the run: ${secs(ev.wallMs)} s.`);
   if (R.problems.length || R.fatal) L.push('', '## Problems', '', ...(R.fatal ? [`- FATAL: ${R.fatal}`] : []), ...R.problems.map((p) => `- ${p}`));
   if (facts.keyLines?.length) L.push('', '<details><summary>chrome://on-device-internals key lines</summary>', '', '```', ...facts.keyLines, '```', '', '</details>');
