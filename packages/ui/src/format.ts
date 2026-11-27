@@ -23,11 +23,51 @@ export const BACKEND_TITLE: Record<Backend, string> = {
   'heuristics-only': 'Local checks only',
 };
 
+/** The redacted text went to the cloud, but no usable answer came back (error, blocked or unparseable). */
+const cloudWithoutAnswer = (r: Pick<CheckResult, 'backend' | 'bytesSent'>) => r.backend === 'heuristics-only' && r.bytesSent > 0;
+
 /** One-line provenance, e.g. "On-device Gemini Nano · 840 ms · 0 bytes sent". */
 export function provenance(r: Pick<CheckResult, 'backend' | 'latencyMs' | 'bytesSent' | 'kind'>): string {
-  const parts = [r.kind === 'deep' && r.backend === 'cloud-redacted' ? 'Deep check · cloud · redacted' : BACKEND_TITLE[r.backend], formatMs(r.latencyMs)];
-  parts.push(`${formatBytes(r.bytesSent)} sent`);
-  return parts.join(' · ');
+  const title =
+    r.kind === 'deep' && r.backend === 'cloud-redacted'
+      ? 'Deep check · cloud · redacted'
+      : cloudWithoutAnswer(r)
+        ? 'Local checks · no usable cloud answer'
+        : BACKEND_TITLE[r.backend];
+  return [title, formatMs(r.latencyMs), `${formatBytes(r.bytesSent)} sent`].join(' · ');
+}
+
+export interface DataPathStep {
+  key: 'local' | 'device' | 'cloud';
+  on: boolean;
+  title: string;
+  detail: string;
+}
+
+/**
+ * The privacy story of one check: which of the three stages ran. The cloud stage is decided by
+ * `bytesSent`, never by the backend alone, so a failed cloud call never reads "nothing sent".
+ */
+export function dataPathSteps(r: Pick<CheckResult, 'backend' | 'latencyMs' | 'bytesSent' | 'signals' | 'redaction'>): DataPathStep[] {
+  const masked = r.redaction.redactions.length;
+  const signs = r.signals.length;
+  const device = r.backend === 'on-device';
+  const sent = r.bytesSent > 0;
+  return [
+    {
+      key: 'local',
+      on: true,
+      title: 'Local checks',
+      detail: `${signs} sign${signs === 1 ? '' : 's'} · ${masked} personal detail${masked === 1 ? '' : 's'} masked`,
+    },
+    { key: 'device', on: device, title: 'Gemini Nano on device', detail: device ? `${formatMs(r.latencyMs)} · raw text stayed here` : 'not used' },
+    {
+      key: 'cloud',
+      on: sent,
+      title: 'Cloud model',
+      detail: !sent ? 'nothing sent' : `redacted only · ${formatBytes(r.bytesSent)}${cloudWithoutAnswer(r) ? ' · no usable answer' : ''}`,
+    },
+  ];
 }
 
 export function categoryLabel(r: Pick<CheckResult, 'category' | 'verdict'>): string {

@@ -1,11 +1,12 @@
 import type { CheckResult } from '@scamshield/core';
 import { HighlightedText } from './HighlightedText';
 import { RiskShield } from './RiskShield';
-import { categoryLabel, formatBytes, formatMs, provenance, VERDICT_TITLE } from './format';
+import { categoryLabel, dataPathSteps, provenance, VERDICT_TITLE } from './format';
 import { IconAlert, IconCheck, IconChip, IconCloud, IconList, IconSpark } from './icons';
 
 function ProvenanceChip({ result }: { result: CheckResult }) {
-  const Icon = result.backend === 'on-device' ? IconChip : result.backend === 'cloud-redacted' ? IconCloud : IconList;
+  // Any uploaded byte shows the cloud icon, also when the cloud call failed.
+  const Icon = result.backend === 'on-device' ? IconChip : result.bytesSent > 0 ? IconCloud : IconList;
   return (
     <span className={`ss-prov ss-prov-${result.backend}`} title="Where this check ran and what left your device">
       <Icon size={15} />
@@ -14,43 +15,22 @@ function ProvenanceChip({ result }: { result: CheckResult }) {
   );
 }
 
+const PATH_ICONS = { local: IconList, device: IconChip, cloud: IconCloud } as const;
+
 /** The privacy story of this exact check: which of the three stages ran. */
 function DataPath({ result }: { result: CheckResult }) {
-  const cloud = result.backend === 'cloud-redacted';
-  const device = result.backend === 'on-device';
-  const redactedCount = result.redaction.redactions.length;
-  const steps = [
-    {
-      key: 'local',
-      on: true,
-      title: 'Local checks',
-      detail: `${result.signals.length} sign${result.signals.length === 1 ? '' : 's'} · ${redactedCount} personal detail${redactedCount === 1 ? '' : 's'} masked`,
-      icon: <IconList size={16} />,
-    },
-    {
-      key: 'device',
-      on: device,
-      title: 'Gemini Nano on device',
-      detail: device ? `${formatMs(result.latencyMs)} · raw text stayed here` : 'not used',
-      icon: <IconChip size={16} />,
-    },
-    {
-      key: 'cloud',
-      on: cloud,
-      title: 'Cloud model',
-      detail: cloud ? `redacted only · ${formatBytes(result.bytesSent)}` : 'nothing sent',
-      icon: <IconCloud size={16} />,
-    },
-  ];
   return (
     <ol className="ss-path" aria-label="Where your text went">
-      {steps.map((s) => (
-        <li key={s.key} className={`ss-path-step${s.on ? ' is-on' : ''} ss-path-${s.key}`}>
-          <span className="ss-path-icon">{s.icon}</span>
-          <span className="ss-path-title">{s.title}</span>
-          <span className="ss-path-detail">{s.detail}</span>
-        </li>
-      ))}
+      {dataPathSteps(result).map((s) => {
+        const Icon = PATH_ICONS[s.key];
+        return (
+          <li key={s.key} className={`ss-path-step${s.on ? ' is-on' : ''} ss-path-${s.key}`}>
+            <span className="ss-path-icon"><Icon size={16} /></span>
+            <span className="ss-path-title">{s.title}</span>
+            <span className="ss-path-detail">{s.detail}</span>
+          </li>
+        );
+      })}
     </ol>
   );
 }

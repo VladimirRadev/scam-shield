@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initializeApp } from 'firebase/app';
-import { getAI, GoogleAIBackend, InferenceMode, InferenceSource } from 'firebase/ai';
+import { AIError, AIErrorCode, getAI, GoogleAIBackend, InferenceMode, InferenceSource } from 'firebase/ai';
 import { VERDICT_JSON_SCHEMA } from '@scamshield/core';
 import { createModels, hybridParams, OnDeviceUnavailableError, sdkGenerate, type ScamShieldModels } from '../src/models';
 import { ON_DEVICE_CREATE_OPTIONS, resetOnDeviceState } from '../src/on-device';
@@ -103,5 +103,42 @@ describe('sdkGenerate() raw-text guard on the device route', () => {
     const models = { quick: device, device, cloud: device, deep: device } as ScamShieldModels;
     await expect(sdkGenerate(models)(RAW, 'device')).rejects.toBeInstanceOf(OnDeviceUnavailableError);
     expect((device as unknown as { generateContent: ReturnType<typeof vi.fn> }).generateContent).not.toHaveBeenCalled();
+  });
+});
+
+describe('sdkGenerate() tells the engine whether a cloud request left the device', () => {
+  const realModels = () => {
+    const app = initializeApp({ apiKey: 'demo-key', projectId: 'demo-proj', appId: '1:1:web:1' }, `sent-${Math.random()}`);
+    return createModels(getAI(app, { backend: new GoogleAIBackend() }), 'gemini-3.5-flash-lite');
+  };
+  const failure = (e: unknown) => e as Error & { requestSent?: boolean };
+
+  it('an HTTP error response: sent', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ error: { message: 'overloaded' } }), { status: 503 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const e = failure(await sdkGenerate(realModels())('redacted prompt', 'cloud').catch((x: unknown) => x));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(e.requestSent).toBe(true);
+  });
+
+  it('a network error during fetch: counted as sent (it may have left)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))));
+    const e = failure(await sdkGenerate(realModels())('redacted prompt', 'hybrid').catch((x: unknown) => x));
+    expect(e.requestSent).toBe(true);
+  });
+
+  it('a blocked answer (bad finish reason): sent', async () => {
+    const body = { candidates: [{ content: { role: 'model', parts: [{ text: '' }] }, finishReason: 'SAFETY' }] };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })));
+    const e = failure(await sdkGenerate(realModels())('redacted prompt', 'deep').catch((x: unknown) => x));
+    expect(e).toBeInstanceOf(Error);
+    expect(e.requestSent).toBe(true);
+  });
+
+  it('an SDK refusal before the request: not sent', async () => {
+    const refuse = { generateContent: vi.fn(async () => Promise.reject(new AIError(AIErrorCode.UNSUPPORTED, 'not supported'))) } as never;
+    const models = { quick: refuse, device: refuse, cloud: refuse, deep: refuse } as ScamShieldModels;
+    const e = failure(await sdkGenerate(models)('redacted prompt', 'hybrid').catch((x: unknown) => x));
+    expect(e.requestSent).toBe(false);
   });
 });

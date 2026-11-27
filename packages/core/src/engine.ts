@@ -287,7 +287,17 @@ export interface GenerateResult {
   source: 'on-device' | 'cloud';
 }
 
+/**
+ * Generate the model answer for a prompt. When it throws, the error may carry
+ * `requestSent: true`: the prompt was handed to the network before the failure (an HTTP error,
+ * a blocked answer, a timeout in flight). Errors without it count as refusals before any request.
+ */
 export type Generate = (prompt: string, route: Route) => Promise<GenerateResult>;
+
+/** True when a failed `Generate` call had already sent its prompt off the device. */
+export function requestWasSent(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && (e as { requestSent?: unknown }).requestSent === true;
+}
 
 export interface QuickCheckDeps {
   /** Result of a fresh on-device availability check (Chrome `LanguageModel.availability()`). */
@@ -351,7 +361,8 @@ export async function runQuickCheck(text: string, deps: QuickCheckDeps): Promise
     const onDevice = res.source === 'on-device';
     const sentText = onDevice ? null : built.prompt;
     if (!parsed.ok) {
-      return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText, note: `Model answer ignored (${parsed.error}).`, truncated: built.truncated });
+      const where = onDevice ? 'On-device answer ignored' : 'The redacted text was sent, but the cloud answer was ignored';
+      return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText, note: `${where} (${parsed.error}); showing the local heuristic check only.`, truncated: built.truncated });
     }
     return combine({
       ...base,
@@ -364,8 +375,11 @@ export async function runQuickCheck(text: string, deps: QuickCheckDeps): Promise
       modelSawRedacted: true,
     });
   } catch (e) {
-    const msg = `${note ? `${note}. ` : ''}Model unavailable (${errMsg(e)}); showing the local heuristic check only.`;
-    return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: null, note: msg });
+    // A request that was issued counts as sent even though it failed: never "nothing left the device".
+    const sent = requestWasSent(e);
+    const what = sent ? 'The redacted text was sent, but the cloud model failed' : 'Model unavailable';
+    const msg = `${note ? `${note}. ` : ''}${what} (${errMsg(e)}); showing the local heuristic check only.`;
+    return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: sent ? built.prompt : null, note: msg, truncated: built.truncated });
   }
 }
 
@@ -403,7 +417,7 @@ export async function runDeepCheck(text: string, deps: DeepCheckDeps, prepared?:
     const res = await deps.generate(prep.prompt, 'deep');
     const parsed = parseModelVerdict(res.text, thresholds);
     if (!parsed.ok) {
-      return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: prep.prompt, note: `Cloud answer ignored (${parsed.error}).` });
+      return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: res.source === 'on-device' ? null : prep.prompt, note: `Cloud answer ignored (${parsed.error}).` });
     }
     return combine({
       ...base,
@@ -414,6 +428,7 @@ export async function runDeepCheck(text: string, deps: DeepCheckDeps, prepared?:
       modelSawRedacted: true,
     });
   } catch (e) {
-    return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: null, note: `Deep check failed (${errMsg(e)}).` });
+    const sent = requestWasSent(e);
+    return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: sent ? prep.prompt : null, note: `Deep check failed${sent ? ' after the redacted text was sent' : ''} (${errMsg(e)}).` });
   }
 }

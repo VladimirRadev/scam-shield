@@ -18,6 +18,8 @@
  * unless the Prompt API exists, the model has its adapter and `onDeviceStatus()` is "available".
  */
 import {
+  AIError,
+  AIErrorCode,
   getGenerativeModel,
   InferenceMode,
   InferenceSource,
@@ -103,18 +105,68 @@ async function assertOnDeviceOnly(model: GenerativeModel, status: () => Promise<
   if (s !== 'available') throw new OnDeviceUnavailableError(`raw text not sent: the on-device model is ${s}`);
 }
 
+/**
+ * Did this SDK error happen after the cloud request was handed to the network?
+ * - FETCH_ERROR: the server answered with an HTTP error (or the WebSocket failed);
+ * - API_NOT_ENABLED with an HTTP status: the server answered 403;
+ * - RESPONSE_ERROR / PARSE_FAILED: an answer arrived but was blocked or unreadable;
+ * - ERROR "Error fetching from ...": fetch() itself failed. The bytes may or may not have left,
+ *   so this counts as sent (the result must never claim "nothing left the device" by mistake);
+ * - AbortError: the SDK's fetch timeout aborted a request in flight.
+ * Everything else (UNSUPPORTED, INVALID_CONTENT, REQUEST_ERROR, NO_*, errors that are not an
+ * AIError) is a refusal before any request.
+ */
+export function cloudRequestIssued(e: unknown): boolean {
+  if (e instanceof Error && e.name === 'AbortError') return true;
+  if (!(e instanceof AIError)) return false;
+  switch (e.code) {
+    case AIErrorCode.FETCH_ERROR:
+    case AIErrorCode.RESPONSE_ERROR:
+    case AIErrorCode.PARSE_FAILED:
+      return true;
+    case AIErrorCode.API_NOT_ENABLED:
+      return typeof e.customErrorData?.status === 'number';
+    case AIErrorCode.ERROR:
+      return /Error fetching from/.test(e.message);
+    default:
+      return false;
+  }
+}
+
+/** Attach `requestSent` (read by the engine's `requestWasSent()`) to a thrown value. */
+function withRequestSent(e: unknown, sent: boolean): Error {
+  const err = e instanceof Error ? e : new Error(String(e));
+  try {
+    Object.defineProperty(err, 'requestSent', { value: sent, configurable: true });
+  } catch {
+    // A frozen error: rethrow a plain one that carries the flag.
+    return Object.assign(new Error(err.message), { name: err.name, requestSent: sent });
+  }
+  return err;
+}
+
 /** The engine's `Generate` function, backed by the Firebase AI Logic SDK. */
 export function sdkGenerate(models: ScamShieldModels, opts: SdkGenerateOptions = {}): Generate {
   const pick: Record<Route, GenerativeModel> = { device: models.device, hybrid: models.quick, cloud: models.cloud, deep: models.deep };
   const deviceStatus = opts.deviceStatus ?? onDeviceStatus;
   return async (prompt, route) => {
     if (route === 'device') await assertOnDeviceOnly(models.device, deviceStatus);
-    const result = await pick[route].generateContent(prompt);
+    let result: Awaited<ReturnType<GenerativeModel['generateContent']>>;
+    try {
+      result = await pick[route].generateContent(prompt);
+    } catch (e) {
+      throw withRequestSent(e, route !== 'device' && cloudRequestIssued(e));
+    }
     const source = result.response.inferenceSource === InferenceSource.ON_DEVICE ? 'on-device' : 'cloud';
     if (route === 'device' && source !== 'on-device') {
       // Cannot happen with ONLY_ON_DEVICE and its adapter; kept as a hard privacy assertion.
-      throw new Error('privacy guard: raw text route did not run on the device');
+      throw withRequestSent(new Error('privacy guard: raw text route did not run on the device'), true);
     }
-    return { text: result.response.text(), source };
+    try {
+      return { text: result.response.text(), source };
+    } catch (e) {
+      // A blocked or empty answer: the request left the device if the cloud answered it.
+      throw withRequestSent(e, source === 'cloud');
+    }
   };
 }

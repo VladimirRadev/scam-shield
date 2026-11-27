@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { communityLine, formatBytes, formatMs, provenance } from '../src/format';
+import { communityLine, dataPathSteps, formatBytes, formatMs, provenance } from '../src/format';
 
 describe('format helpers', () => {
   it('formats latency', () => {
@@ -33,5 +33,34 @@ describe('format helpers', () => {
   it('never rounds a partial share up to 100% or down to 0%', () => {
     expect(communityLine({ checks: 1000, onDevice: 998, cloudRedacted: 2, heuristicsOnly: 0 })).toBe('1,000 checks so far · 99% never left the device');
     expect(communityLine({ checks: 1000, onDevice: 2, cloudRedacted: 998, heuristicsOnly: 0 })).toBe('1,000 checks so far · 1% never left the device');
+  });
+});
+
+describe('data path and provenance agree on what left the device', () => {
+  const base = { latencyMs: 1200, kind: 'quick' as const, signals: [], redaction: { text: '', redactions: [], counts: {} } };
+  const cloud = (r: Parameters<typeof dataPathSteps>[0]) => dataPathSteps(r).find((s) => s.key === 'cloud')!;
+
+  it('a failed cloud call that sent redacted text lights the cloud step and says so', () => {
+    const r = { ...base, backend: 'heuristics-only' as const, bytesSent: 2150 };
+    expect(cloud(r)).toMatchObject({ on: true });
+    expect(cloud(r).detail).toBe('redacted only · 2.1 kB · no usable answer');
+    expect(provenance(r)).toBe('Local checks · no usable cloud answer · 1.2 s · 2.1 kB sent');
+  });
+
+  it('nothing sent only when no byte left the device', () => {
+    const r = { ...base, backend: 'heuristics-only' as const, bytesSent: 0 };
+    expect(cloud(r)).toMatchObject({ on: false, detail: 'nothing sent' });
+    expect(provenance(r)).toBe('Local checks only · 1.2 s · 0 bytes sent');
+  });
+
+  it('a cloud answer', () => {
+    const r = { ...base, backend: 'cloud-redacted' as const, bytesSent: 2150 };
+    expect(cloud(r)).toMatchObject({ on: true, detail: 'redacted only · 2.1 kB' });
+  });
+
+  it('an on-device answer', () => {
+    const r = { ...base, backend: 'on-device' as const, bytesSent: 0, latencyMs: 840 };
+    expect(dataPathSteps(r).find((s) => s.key === 'device')).toMatchObject({ on: true, detail: '840 ms · raw text stayed here' });
+    expect(cloud(r)).toMatchObject({ on: false, detail: 'nothing sent' });
   });
 });

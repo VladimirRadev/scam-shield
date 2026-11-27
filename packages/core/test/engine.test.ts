@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { analyzeLocal, combine, runQuickCheck, runDeepCheck, locateQuote, DEFAULT_THRESHOLDS, toSegments, verdictFor } from '../src/engine';
 import { EXAMPLES } from '../src/examples';
+import { prepareDeepCheck } from '../src/engine';
+import { statsRouteFor } from '../src/stats';
 import type { ModelVerdict } from '../src/types';
 
 const PHISH =
@@ -309,5 +311,58 @@ describe('prompt-injection floor', () => {
     expect(r.verdict).toBe('scam');
     expect(r.advice).toBe('Do not click the link.');
     expect(r.reasons.some((x) => x.source === 'engine')).toBe(false);
+  });
+});
+
+describe('bytes sent when a cloud call fails', () => {
+  const sentError = (msg: string) => Object.assign(new Error(msg), { requestSent: true });
+
+  it('keeps the redacted prompt and its bytes when the cloud request was issued but failed', async () => {
+    const generate = vi.fn().mockRejectedValue(sentError('[503 Service Unavailable] overloaded'));
+    const r = await runQuickCheck(PHISH, { onDeviceAvailable: false, generate, now });
+    const [prompt] = generate.mock.calls[0] as unknown as [string, string];
+    expect(r.backend).toBe('heuristics-only');
+    expect(r.sentText).toBe(prompt);
+    expect(r.sentText).not.toContain('anna.k@gmail.com');
+    expect(r.bytesSent).toBe(new TextEncoder().encode(prompt).length);
+    expect(r.note).toMatch(/redacted text was sent/);
+    expect(r.note).toMatch(/503/);
+    // The community counter must not count this check as "never left the device".
+    expect(statsRouteFor(r)).toBe('cloudRedacted');
+  });
+
+  it('reports nothing sent when the call was refused before any request', async () => {
+    const generate = vi.fn().mockRejectedValue(Object.assign(new Error('Firebase is not configured'), { requestSent: false }));
+    const r = await runQuickCheck(PHISH, { onDeviceAvailable: false, generate, now });
+    expect(r.sentText).toBeNull();
+    expect(r.bytesSent).toBe(0);
+    expect(statsRouteFor(r)).toBe('heuristicsOnly');
+  });
+
+  it('after a device failure, a failed but issued cloud request still counts its bytes', async () => {
+    const generate = vi.fn().mockRejectedValueOnce(new Error('device busy')).mockRejectedValueOnce(sentError('fetch failed'));
+    const r = await runQuickCheck(PHISH, { onDeviceAvailable: true, generate, now });
+    const second = generate.mock.calls[1] as unknown as [string, string];
+    expect(second[1]).toBe('cloud');
+    expect(r.sentText).toBe(second[0]);
+    expect(r.bytesSent).toBeGreaterThan(0);
+  });
+
+  it('an unparseable cloud answer counts as sent', async () => {
+    const generate = vi.fn(async () => ({ text: 'no json here', source: 'cloud' as const }));
+    const r = await runQuickCheck(PHISH, { onDeviceAvailable: false, generate, now });
+    expect(r.backend).toBe('heuristics-only');
+    expect(r.bytesSent).toBeGreaterThan(0);
+    expect(r.note).toMatch(/redacted text was sent/);
+  });
+
+  it('deep check: a failed but issued request keeps the consented text and its bytes', async () => {
+    const prepared = prepareDeepCheck(PHISH);
+    const r = await runDeepCheck(PHISH, { generate: vi.fn().mockRejectedValue(sentError('[500] internal')), now }, prepared);
+    expect(r.sentText).toBe(prepared.prompt);
+    expect(r.bytesSent).toBe(prepared.bytes);
+    const refused = await runDeepCheck(PHISH, { generate: vi.fn().mockRejectedValue(new Error('switched off')), now }, prepared);
+    expect(refused.sentText).toBeNull();
+    expect(refused.bytesSent).toBe(0);
   });
 });
