@@ -1,6 +1,7 @@
 import { Component, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { addCheckToStats, analyzeLocal, SIGNAL_DEFINITIONS, type CheckResult, type CommunityStats, type Example, type PreparedDeepCheck } from '@scamshield/core';
 import type { ScamShieldAI } from '@scamshield/ai';
+import { createCheckQueue, type CheckQueue } from './check-queue';
 import { ConsentDialog } from './ConsentDialog';
 import { ExampleChips } from './Examples';
 import { announce, communityLine } from './format';
@@ -27,7 +28,10 @@ export interface ScamShieldAppProps {
   actions?: ReactNode;
   /** A message shown above the input, e.g. why a page could not be read. */
   notice?: ReactNode;
-  onResult?: (r: CheckResult) => void;
+  /** A finished check, with the exact text that was checked. */
+  onResult?: (r: CheckResult, checkedText: string) => void;
+  /** The user typed, picked an example or cleared the text box. */
+  onEdit?: () => void;
 }
 
 function SetupNotice({ missing }: { missing: string[] }) {
@@ -94,7 +98,7 @@ function EmptyState() {
   );
 }
 
-export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckIncoming = false, actions, notice, onResult }: ScamShieldAppProps) {
+export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckIncoming = false, actions, notice, onResult, onEdit }: ScamShieldAppProps) {
   const [theme, toggleTheme] = useTheme();
   const model = useModelState(ai);
   const [text, setText] = useState('');
@@ -133,31 +137,39 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
   const local = useMemo(() => analyzeLocal(deferred), [deferred]);
 
   const publish = useCallback(
-    (r: CheckResult) => {
+    (r: CheckResult, value: string) => {
       setResult(r);
       setLive(announce(r));
       // This check was just counted in Firestore; show it without reading the document again.
       setCommunity((s) => (s ? addCheckToStats(s, r) : s));
-      onResult?.(r);
+      onResult?.(r, value);
       requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
     },
     [onResult],
   );
 
-  const check = useCallback(
-    async (value: string) => {
-      if (!value.trim() || busy) return;
-      setBusy(true);
-      setCheckedText(value);
-      try {
-        publish(await ai.quickCheck(value));
-      } finally {
-        setBusy(false);
-        model.refresh();
-      }
-    },
-    [ai, busy, publish, model],
-  );
+  const runCheck = async (value: string) => {
+    setBusy(true);
+    setCheckedText(value);
+    try {
+      publish(await ai.quickCheck(value), value);
+    } finally {
+      setBusy(false);
+      model.refresh();
+    }
+  };
+  // One check at a time; a text that arrives during a check runs right after it (see check-queue.ts).
+  const runRef = useRef(runCheck);
+  runRef.current = runCheck;
+  const queueRef = useRef<CheckQueue | null>(null);
+  queueRef.current ??= createCheckQueue((value) => runRef.current(value));
+  const check = (value: string, queue = false) => queueRef.current!.submit(value, { queue });
+
+  /** The user changed the input: a waiting outside text is dropped. */
+  const edited = () => {
+    queueRef.current?.cancelQueued();
+    onEdit?.();
+  };
 
   useEffect(() => {
     if (!incoming) return;
@@ -165,7 +177,7 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
     setSource(incoming.source);
     setExampleId(null);
     setResult(null);
-    if (autoCheckIncoming) void check(incoming.text);
+    if (autoCheckIncoming) check(incoming.text, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incoming?.nonce]);
 
@@ -174,6 +186,7 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
     setExampleId(ex.id);
     setSource(null);
     setResult(null);
+    edited();
   };
 
   const sendDeep = async () => {
@@ -182,7 +195,7 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
     setPrepared(null);
     setDeepBusy(true);
     try {
-      publish(await ai.deepCheck(checkedText, p));
+      publish(await ai.deepCheck(checkedText, p), checkedText);
     } finally {
       setDeepBusy(false);
     }
@@ -208,11 +221,12 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
           onChange={(e) => {
             setText(e.target.value);
             setExampleId(null);
+            edited();
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
-              void check(text);
+              check(text);
             }
           }}
         />
@@ -235,12 +249,12 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
         </details>
       )}
       <div className="ss-actions">
-        <button type="button" className="ss-btn ss-btn-primary ss-btn-big" onClick={() => void check(text)} disabled={!text.trim() || busy}>
+        <button type="button" className="ss-btn ss-btn-primary ss-btn-big" onClick={() => check(text)} disabled={!text.trim() || busy}>
           {busy ? 'Checking…' : 'Check privately'} <IconArrow size={18} />
         </button>
         {actions}
         {text && (
-          <button type="button" className="ss-btn ss-btn-ghost" onClick={() => { setText(''); setResult(null); setExampleId(null); setSource(null); }}>
+          <button type="button" className="ss-btn ss-btn-ghost" onClick={() => { setText(''); setResult(null); setExampleId(null); setSource(null); edited(); }}>
             Clear
           </button>
         )}

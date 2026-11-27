@@ -1,11 +1,11 @@
 /// <reference types="chrome" />
-import { StrictMode, useCallback, useEffect, useState } from 'react';
+import { StrictMode, useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createScamShieldAI } from '@scamshield/ai';
 import type { CheckResult } from '@scamshield/core';
 import { ErrorBoundary, IconPage, ScamShieldApp, type IncomingText } from '@scamshield/ui';
 import '@scamshield/ui/styles.css';
-import { badgeFor } from './badge';
+import { badgeFor, badgeTabFor, type BadgeSource } from './badge';
 import { extractVisibleText } from './page-text';
 import { PENDING_KEY, type PendingText } from './pending';
 
@@ -18,9 +18,15 @@ const SCAN_HELP =
 
 function Panel() {
   const [incoming, setIncoming] = useState<IncomingText | null>(null);
-  const [tabId, setTabId] = useState<number | undefined>(undefined);
+  // Page texts that came from a tab, newest last; a result badges a tab only for its own text.
+  const sources = useRef<BadgeSource[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+
+  const remember = (tabId: number | undefined, text: string) => {
+    if (tabId === undefined) return;
+    sources.current = [...sources.current.filter((s) => s.text !== text), { tabId, text }].slice(-5);
+  };
 
   const accept = useCallback((p: PendingText | undefined) => {
     if (!p) return;
@@ -30,7 +36,7 @@ function Panel() {
       return;
     }
     setNotice(null);
-    setTabId(p.tabId);
+    remember(p.tabId, p.text);
     setIncoming({ text: p.text, source: p.source, nonce: p.nonce });
   }, []);
 
@@ -52,7 +58,7 @@ function Panel() {
       const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: extractVisibleText, args: [12000] });
       const page = res?.result;
       if (!page?.text.trim()) throw new Error('the page has no readable text');
-      setTabId(tab.id);
+      remember(tab.id, page.text);
       setIncoming({ text: page.text, source: `Page: ${page.host}`, nonce: Date.now() });
     } catch (e) {
       setNotice(`${SCAN_HELP} (${e instanceof Error ? e.message : String(e)})`);
@@ -61,14 +67,12 @@ function Panel() {
     }
   };
 
-  const onResult = async (r: CheckResult) => {
+  const onResult = async (r: CheckResult, checkedText: string) => {
+    // Typed text or an example is not about any tab: no badge.
+    const target = badgeTabFor(sources.current, checkedText);
+    if (target === undefined) return;
     const b = badgeFor(r.verdict, r.risk);
-    let target = tabId;
-    if (target === undefined) {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      target = tab?.id;
-    }
-    const scope = target === undefined ? {} : { tabId: target };
+    const scope = { tabId: target };
     await chrome.action.setBadgeBackgroundColor({ ...scope, color: b.color });
     await chrome.action.setBadgeTextColor?.({ ...scope, color: '#ffffff' });
     await chrome.action.setBadgeText({ ...scope, text: b.text });
@@ -82,7 +86,11 @@ function Panel() {
       incoming={incoming}
       autoCheckIncoming
       notice={notice}
-      onResult={(r) => void onResult(r).catch(() => undefined)}
+      onResult={(r, checkedText) => void onResult(r, checkedText).catch(() => undefined)}
+      onEdit={() => {
+        // The text box no longer holds a page text: no tab gets a badge for what comes next.
+        sources.current = [];
+      }}
       actions={
         <button type="button" className="ss-btn ss-btn-ghost" onClick={() => void scan()} disabled={scanning}>
           <IconPage size={16} /> {scanning ? 'Reading page…' : 'Scan this page'}
