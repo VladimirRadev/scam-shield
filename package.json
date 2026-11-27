@@ -19,7 +19,7 @@
     "zip:ext": "npm run build:ext && node scripts/zip-ext.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval": "npm run eval -w @scamshield/core",
+    "eval": "tsx packages/core/scripts/eval-heuristics.ts",
     "typecheck": "tsc -b"
   },
   "devDependencies": {

@@ -58,7 +58,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
   {
     id: 'wallet-connect',
     label: 'Asks you to connect or approve a wallet',
-    weight: 20,
+    weight: 25,
     severity: 'medium',
     category: 'wallet-drainer',
     explanation: 'Drainer sites ask you to connect a wallet or sign a request that hands over your tokens.',
@@ -137,6 +137,19 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     ],
   },
   {
+    id: 'marketplace-courier',
+    label: 'Buyer with a "courier" and payment link',
+    weight: 20,
+    severity: 'medium',
+    category: 'off-platform-lure',
+    explanation: 'Fake buyers promise full price and a courier, then send a phishing "payment link" for your card.',
+    patterns: [
+      /\bmy (?:courier|shipping agent|mover|driver|agent)\s+will\s+(?:pick|collect|come)/gi,
+      /\b(?:payment|delivery|shipping|safe[- ]deal)\s+link\b[^.!?\n]{0,40}\b(?:courier|delivery company|shipping company|delivery service)\b/gi,
+      /\bpay\s+(?:the\s+)?full price\b[^.!?\n]{0,40}\b(?:shipping|courier|without seeing)\b/gi,
+    ],
+  },
+  {
     id: 'credential-request',
     label: 'Asks for a password or code',
     weight: 30,
@@ -161,6 +174,8 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
       /\b(?:account|card|access|profile|service|mailbox|subscription|wallet|number)\s+(?:has been|have been|was|is|will be|may be|could be)\s+(?:temporarily\s+|permanently\s+)?(?:suspended|locked|limited|restricted|blocked|disabled|deactivated|closed|terminated|frozen|compromised|deleted|on hold)\b/gi,
       /\b(?:unusual|suspicious|unauthori[sz]ed)\s+(?:activity|sign[- ]?in|login|log-in|transaction|access|attempt)s?\b/gi,
       /\b(?:avoid|prevent)\s+(?:the\s+|permanent\s+)?(?:suspension|closure|deactivation|termination|losing access)\b/gi,
+      /\b(?:suspension|deactivation|closure|termination|cancellation)\s+of\s+your\b/gi,
+      /\b(?:withdrawal|transfer|payment|password reset|login|sign-in)\b[^.!?\n]{0,40}\b(?:was|has been)\s+(?:requested|initiated|attempted)\s+from\b/gi,
       /\b(?:verify|confirm|validate|update)\s+(?:your\s+)?(?:account|identity|information|details|billing)\b/gi,
     ],
   },
@@ -184,7 +199,8 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     explanation: 'Artificial deadlines stop you from checking with someone you trust.',
     patterns: [
       /\b(?:urgent(?:ly)?|immediately|right away|asap|act now|final (?:notice|warning|reminder)|last (?:chance|warning|notice)|expires? (?:today|tonight|soon)|today only|time[- ]sensitive)\b/gi,
-      /\b(?:within|in the next)\s+\d+\s*(?:hours?|hrs?|h|minutes?|mins?)\b/gi,
+      /\b(?:within|in)\s+(?:the\s+next\s+)?\d+\s*(?:hours?|hrs?|h|minutes?|mins?)\b/gi,
+      /\b(?:pay|act|verify|respond|reply|call|update|confirm|cancel|click)\s+(?:\w+\s+)?(?:now|today|immediately)\b/gi,
       /\bbefore it'?s too late\b/gi,
     ],
   },
@@ -198,7 +214,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     patterns: [
       /\b(?:pay|send|transfer|cover)\s+(?:a\s+|the\s+|an\s+)?(?:(?:small|one[- ]time|refundable|processing|release|clearance|customs|redelivery|registration|activation|verification|training|onboarding|insurance|unlock(?:ing)?|withdrawal|admin(?:istrative)?|handling|shipping|delivery|tax)\s+)+(?:fee|charge|deposit|payment|cost)s?\b/gi,
       /\b(?:processing|release|clearance|customs|redelivery|registration|activation|unlock|withdrawal|handling|administrative|delivery|shipping)\s+(?:fee|charge|duty)\s+(?:of\s+)?(?:[$€£]|usd|eur|gbp)?\s?\d/gi,
-      /\b(?:purchase|buy)\s+(?:the\s+|your\s+)?(?:own\s+)?(?:equipment|laptop|software|starter kit|training materials?)\b[^.!?\n]{0,60}\b(?:reimburs\w*|refund\w*|we will (?:send|pay))/gi,
+      /\b(?:purchase|buy)\s+(?:the\s+|your\s+)?(?:own\s+)?(?:\w+\s+)?(?:equipment|laptop|software|starter kit|training materials?)\b[^.!?\n]{0,60}\b(?:reimburs\w*|refund\w*|we will (?:send|pay))/gi,
       /\bunpaid\s+(?:toll|fee|duty|customs|postage|shipping)\b/gi,
     ],
   },
@@ -212,7 +228,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     patterns: [
       /\b(?:buy|purchase|get|send|pick up|scratch)\b[^.!?\n]{0,40}\bgift\s*cards?\b/gi,
       /\bgift\s*cards?\b[^.!?\n]{0,60}\b(?:codes?|pins?|numbers on the back|scratch)\b/gi,
-      /\b(?:pay|payment)\b[^.!?\n]{0,30}\b(?:gift\s*cards?|itunes cards?|google play cards?|steam cards?)\b/gi,
+      /\b(?:pay|payment)\b[^.!?\n]{0,60}\b(?:gift\s*cards?|itunes cards?|google play cards?|steam cards?)\b/gi,
     ],
   },
   {
@@ -242,6 +258,19 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     ],
   },
   {
+    id: 'no-callback',
+    label: 'Avoids a phone call',
+    weight: 15,
+    severity: 'medium',
+    category: 'fake-invoice',
+    explanation: 'Invoice and "CEO" fraudsters avoid calls because a quick call to the real person exposes them.',
+    patterns: [
+      /\b(?:cannot|can'?t|unable to)\s+(?:take|answer|receive)\s+(?:any\s+)?(?:calls?|phone calls)\b/gi,
+      /\b(?:confirm|reply|respond)\s+(?:by|via)\s+e-?mail\s+only\b/gi,
+      /\b(?:in a meeting|stuck in a (?:board )?meeting|on a flight|travelling|traveling)\b[^.!?\n]{0,40}\b(?:can'?t|cannot|unable to)\s+(?:talk|call|answer)\b/gi,
+    ],
+  },
+  {
     id: 'overpayment',
     label: 'Overpayment / refund the difference',
     weight: 20,
@@ -250,6 +279,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     explanation: 'A "you were overpaid, send back the difference" story ends with a bounced payment.',
     patterns: [
       /\b(?:overpaid|over-?payment|sent (?:you )?(?:too much|extra|more than)|refund the (?:difference|excess|balance)|return the (?:extra|excess|difference))\b/gi,
+      /\b(?:deposit|cash)\s+(?:the\s+check|the\s+cheque|it|this)\b[^.!?\n]{0,40}\b(?:keep|send|forward|wire|use the rest)\b/gi,
     ],
   },
   {
@@ -328,7 +358,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     explanation: 'Being "selected" for something you never applied for is a common opener.',
     patterns: [
       /\b(?:you(?:'ve| have)? been|you are|you were)\s+(?:(?:randomly|specially|personally)\s+)?(?:selected|chosen|hired|pre-?approved)\b/gi,
-      /\b(?:hiring immediately|immediate start|start (?:today|tomorrow)|no interview)\b/gi,
+      /\b(?:hiring immediately|immediate start|start (?:today|tomorrow)|no interview|interview (?:is|was) not (?:necessary|required|needed))\b/gi,
     ],
   },
   {
@@ -381,7 +411,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     category: 'tech-support',
     explanation: 'Remote-access tools such as AnyDesk give the caller full control of your computer and bank sessions.',
     patterns: [
-      /\b(?:install|download|open|run|launch|use|get)\b[^.!?\n]{0,40}\b(?:anydesk|teamviewer|ultraviewer|rustdesk|quick ?support|quick ?assist|supremo|ammyy|logmein|screenconnect|splashtop)\b/gi,
+      /\b(?:install|download|open|run|launch|use|using|via|get|connect)\b[^.!?\n]{0,40}\b(?:anydesk|teamviewer|ultraviewer|rustdesk|quick ?support|quick ?assist|supremo|ammyy|logmein|screenconnect|splashtop)\b/gi,
       /\b(?:anydesk|teamviewer|ultraviewer|rustdesk|quick ?assist)\b[^.!?\n]{0,40}\b(?:code|id|number|session|access)\b/gi,
       /\bgive\s+(?:us|me|our technician|the technician)\s+(?:remote\s+)?access\s+to\s+your\s+(?:computer|pc|screen|laptop|device)\b/gi,
     ],
@@ -418,7 +448,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     category: 'other',
     explanation: 'Being told not to tell your bank, family or colleagues is a strong manipulation sign.',
     patterns: [
-      /\b(?:keep (?:this|it) (?:confidential|secret|between us|private|to yourself)|do(?:n'?t| not) (?:tell|inform|discuss (?:this )?with|share this with) (?:anyone|anybody|your (?:bank|family|friends|colleagues|manager))|strictly confidential)\b/gi,
+      /\b(?:keep (?:this|it)(?:\s+\w+)?\s+(?:confidential|secret|between us|private|to yourself)|do(?:n'?t| not) (?:tell|inform|discuss (?:this )?with|share this with) (?:anyone|anybody|your (?:bank|family|friends|colleagues|manager))|strictly confidential)\b/gi,
     ],
   },
   {
