@@ -46,7 +46,7 @@ export function ConsentDialog({ prepared, onCancel, onSend }: Props) {
             <span className="ss-dialog-icon"><IconCloud size={22} /></span>
             <div>
               <h2 id="ss-consent-title">Send a redacted copy for a deep check?</h2>
-              <p>A larger Gemini model in the cloud takes a second look. This is exactly the message text that would leave your device:</p>
+              <p>Gemini in the cloud takes a second, slower and more careful look. This is exactly the message text that would leave your device:</p>
             </div>
           </header>
           <RedactedPreview prepared={prepared} />

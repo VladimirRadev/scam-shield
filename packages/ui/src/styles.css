@@ -715,10 +715,8 @@ code {
 /* ------------------------------------------------------------ result */
 
 .ss-result {
-  --tone: var(--idle);
-  --tone-soft: var(--surface-2);
   padding: 20px;
-  border-top: 5px solid var(--tone);
+  border-top: 5px solid var(--tone, var(--idle));
   display: flex;
   flex-direction: column;
   gap: 16px;
