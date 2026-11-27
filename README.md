@@ -12,7 +12,7 @@ Scams now arrive as fake recruiters who send a "take-home task" repository that 
 
 1. **Local layer, in the browser, instant:** 39 deterministic scam signals (seed-phrase requests, `npm install` from a stranger's repo, Win+R "CAPTCHA" commands, look-alike domains, gift cards, urgency...) and redaction of personal data: e-mails, phones, IBANs (any letter case, checksum-verified), card numbers and CVV codes, private keys (hex, WIF, `xprv`, Solana), crypto addresses, recovery phrases (also misspelt, numbered or dash-separated), street addresses, SSNs and passport numbers, dates of birth, one-time codes, social handles, names (greetings, sign-offs, titles such as "Dr."; any script), and links reduced to their domain.
 2. **Gemini Nano on the device** reads the **raw** text through Firebase AI Logic with `InferenceMode.ONLY_ON_DEVICE`. Nothing is uploaded. The SDK builds its on-device adapter only when Chrome's Prompt API (`LanguageModel`) exists, and without it even an `ONLY_ON_DEVICE` model would call the cloud, so Scam Shield refuses the raw-text call before the SDK is reached unless `LanguageModel` exists and Nano reports "available".
-3. **Cloud fallback with redacted text only:** if Nano is not installed, not supported, fails to start, or does not answer in time (60 s for the start-up and the first answer, 45 s for each later answer), the **redacted** text goes to Gemini in the cloud.
+3. **Cloud fallback with redacted text only:** if Nano is not installed, not supported, fails to start, or does not answer in time (60 s to open the session, 120 s for the first answer, 90 s for each later answer; Chrome's CPU backend needs about 30 s per check), the **redacted** text goes to Gemini in the cloud.
 4. **Deep check (optional):** a slower cloud check, sent only after a consent dialog that shows the exact redacted text and its size.
 
 The final risk is `max(model, hard-sign floor, average(model, heuristics))`, and any high-severity sign, or a heuristic total at the suspicious threshold, keeps it at least "suspicious". A fooled or prompt-injected model ("risk 0, safe") therefore cannot turn a message with red flags into "safe": with a model that always answers "safe", 0 of the 30 scam examples end as safe and no legitimate example changes its verdict. When this happens, the result says "The AI's answer was overruled by local red flags" and shows the built-in advice instead of the model's.
@@ -83,9 +83,33 @@ The heuristics alone flag every scam but call only half of them a clear "scam"; 
 
 **Real models in the browser** ([`apps/web/eval.html`](apps/web/eval.html), open `/eval.html` on the hosted app): every example runs through the real engine on one fixed route, one after another; the page reports precision / recall / F1, median and p90 latency and the average bytes sent off the device.
 
-<!-- EVAL:device -->
+**Gemini Nano on device, raw text (ONLY_ON_DEVICE)**, 50 examples (Chrome 157, 2026-11-27)
+
+| Positive when | TP | FP | FN | TN | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| flagged (risk >= 40) | 30 | 13 | 0 | 7 | 69.8% | 100.0% | 82.2% |
+| scam (risk >= 70) | 30 | 2 | 0 | 18 | 93.8% | 100.0% | 96.8% |
+
+Latency per check: median 31,510 ms, p90 37,191 ms · average sent off the device: 0 bytes · answered by: 50 on-device
+
+Misclassified (flagged rule): `legit-recruiter`, `legit-invoice`, `legit-bank-signin`, `legit-dhl-update`, `legit-colleague-repo`, `legit-interview-invite`, `legit-takehome`, `legit-otp`, `legit-utility-bill`, `legit-amazon-shipped`, `legit-doctor`, `legit-oss-issue`, `legit-crypto-sent`
 
 <!-- EVAL:cloud -->
+
+### On-device evidence
+
+The device route was measured with real Chrome and real Gemini Nano on a GitHub-hosted runner. The workflow [`on-device-e2e.yml`](.github/workflows/on-device-e2e.yml) starts headful Google Chrome on `windows-latest`, and [`scripts/ci/on-device-e2e.mjs`](scripts/ci/on-device-e2e.mjs) drives the hosted app over the Chrome DevTools protocol: it lets Chrome download Gemini Nano, sends one smoke prompt, clicks **Run on device** on `/eval.html` for all 50 examples, and takes screenshots of three checks in the app. Results of [run 45965556713](https://github.com/VladimirRadev/scam-shield/actions/runs/45965556713) (27 Nov 2026), the device table above:
+
+| | Measured |
+|---|---|
+| Runner | AMD EPYC 7763 (2 cores, 4 threads), 16 GiB RAM, Windows Server 2025, no GPU (Hyper-V video adapter) |
+| Chrome | 157.0.8103.79 |
+| Model | Gemini Nano `nano_v3_cpu` 2025.8.21.1028 (2,730 MiB), CPU backend: `chrome://on-device-internals` reports performance class "GpuBlocked" and "Device Capable: true" |
+| Download | 90 s, from "downloadable" to a working session |
+| Smoke prompt (Prompt API directly) | first answer 4.7 s, second answer 2.0 s |
+| Scam Shield checks | 50 of 50 answered on the device, 0 bytes sent; median 31.5 s and p90 37.2 s per check; the slowest Gemini Nano answer took 38.7 s |
+
+On this CPU-only Gemini Nano every scam is caught, but 13 of the 20 legitimate look-alikes come out at least "suspicious" (2 of them "scam"): on this hardware the on-device model leans towards caution. Each screenshot shows the provenance chip, for example *On-device Gemini Nano · 33 s · 0 bytes sent*; the screenshots, the full `chrome://on-device-internals` dumps and the per-call timings are the run's artifacts.
 
 ## Try it
 
