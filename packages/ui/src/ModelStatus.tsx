@@ -65,8 +65,8 @@ const COPY: Record<ModelState['status'], { title: string; body: string }> = {
   unavailable: { title: 'Gemini Nano is not available here', body: 'This device cannot run the on-device model. Checks use the cloud model with redacted text only.' },
   unsupported: { title: 'No on-device AI in this browser', body: 'Use desktop Chrome for on-device checks. Until then, only redacted text goes to the cloud.' },
   failed: {
-    title: 'Gemini Nano cannot start on this device',
-    body: 'Chrome has the model, but could not open a session (for example without a usable GPU). Until you reload, checks use the cloud model with redacted text only.',
+    title: 'Gemini Nano is not working on this device',
+    body: 'Chrome has the model, but it could not open a session or did not answer in time (for example without a usable GPU). For now, checks use the cloud model with redacted text only.',
   },
 };
 
