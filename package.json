@@ -21,6 +21,7 @@
     "test:watch": "vitest",
     "test:rules": "firebase emulators:exec --only firestore --project demo-scamshield \"vitest run --config vitest.rules.config.ts\"",
     "eval": "tsx packages/core/scripts/eval-heuristics.ts",
+    "replay:nano": "tsx packages/core/scripts/replay-nano.ts",
     "typecheck": "tsc -p packages/core && tsc -p packages/ai && tsc -p packages/ui && tsc -p apps/web && tsc -p apps/extension",
     "check:token": "node scripts/check-no-debug-token.mjs"
   },

