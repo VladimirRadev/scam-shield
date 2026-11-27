@@ -17,6 +17,11 @@
  * marks the model as failed for this page load, so checks go to the redacted cloud route.
  * The answer budgets fit Chrome's CPU backend (no usable GPU): on a 4-vCPU GitHub runner one check
  * took 24-39 s, and one took more than 45 s.
+ *
+ * The failure flag lives in this module, so it lasts for one page load. The extension side panel is
+ * a new page every time it is opened, so it also passes a failure store (chrome.storage.session):
+ * a failure is saved there, and a panel opened later in the same browser session starts as
+ * "failed" instead of trying Gemini Nano again.
  */
 import type { LanguageModelCreateOptions } from 'firebase/ai';
 
@@ -53,6 +58,29 @@ export class OnDeviceTimeoutError extends Error {
 let failure: string | null = null;
 let probe: Promise<boolean> | null = null;
 let warm = false;
+
+/** Keeps the failure reason beyond this page. Reads and writes may fail; they are then ignored. */
+export interface OnDeviceFailureStore {
+  load(): Promise<string | null>;
+  save(reason: string): Promise<void> | void;
+}
+
+let store: OnDeviceFailureStore | null = null;
+
+/** Persist the failed state through `s` (the extension side panel). Without a store it lasts for the page load. */
+export function setOnDeviceFailureStore(s: OnDeviceFailureStore | null): void {
+  store = s;
+}
+
+async function storedFailure(): Promise<string | null> {
+  if (!store) return null;
+  try {
+    const reason = await store.load();
+    return typeof reason === 'string' && reason ? reason : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Settle like `p`, or reject with `OnDeviceTimeoutError` after `ms`. A value that arrives after
@@ -94,9 +122,15 @@ export function markOnDeviceWarm(): void {
 
 const message = (e: unknown) => (e instanceof Error ? `${e.name && e.name !== 'Error' ? `${e.name}: ` : ''}${e.message}` : String(e));
 
-/** Mark the on-device model as not usable for the rest of this page session. */
+/** Mark the on-device model as not usable for the rest of this page session (and in the store, if set). */
 export function markOnDeviceFailed(reason: unknown): void {
   failure = typeof reason === 'string' ? reason : message(reason);
+  if (!store) return;
+  const saved = failure;
+  const s = store;
+  void Promise.resolve()
+    .then(() => s.save(saved))
+    .catch(() => undefined);
 }
 
 /** Why the on-device model failed, or null. */
@@ -104,11 +138,12 @@ export function onDeviceFailureReason(): string | null {
   return failure;
 }
 
-/** For tests. */
+/** For tests (also models a new page: the module state is gone, a store keeps its value). */
 export function resetOnDeviceState(): void {
   failure = null;
   probe = null;
   warm = false;
+  store = null;
 }
 
 function languageModel(): LanguageModelStatic | null {
@@ -132,6 +167,11 @@ function probeSession(lm: LanguageModelStatic): Promise<boolean> {
 
 /** Fresh availability check of the on-device model. Never throws. */
 export async function onDeviceStatus(): Promise<OnDeviceStatus> {
+  if (!failure) {
+    const stored = await storedFailure();
+    // A failure marked while the store was read wins over the stored one.
+    if (stored && !failure) failure = stored;
+  }
   if (failure) return 'failed';
   const lm = languageModel();
   if (!lm) return 'unsupported';

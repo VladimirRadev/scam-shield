@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ON_DEVICE_STARTUP_TIMEOUT_MS,
+  OnDeviceTimeoutError,
   downloadOnDeviceModel,
   markOnDeviceFailed,
   onDeviceFailureReason,
   onDeviceStatus,
   resetOnDeviceState,
+  setOnDeviceFailureStore,
+  type OnDeviceFailureStore,
 } from '../src/on-device';
 
 type G = { LanguageModel?: unknown };
@@ -97,5 +100,70 @@ describe('on-device start-up timeout', () => {
     open({ destroy });
     await vi.advanceTimersByTimeAsync(0);
     expect(destroy).toHaveBeenCalled();
+  });
+});
+
+/** chrome.storage.session stand-in: one value that outlives the page (the side panel document). */
+function memoryStore(initial: string | null = null) {
+  let value = initial;
+  const store: OnDeviceFailureStore = {
+    load: vi.fn(async () => value),
+    save: vi.fn(async (reason: string) => {
+      value = reason;
+    }),
+  };
+  return { store, value: () => value };
+}
+
+describe('failure store: the failed state outlives the page (extension side panel)', () => {
+  beforeEach(() => resetOnDeviceState());
+  afterEach(() => {
+    delete (globalThis as G).LanguageModel;
+    resetOnDeviceState();
+  });
+
+  it('a failure saved by an earlier panel makes the status "failed" without probing Gemini Nano again', async () => {
+    const lm = stubLanguageModel('available', async () => ({ destroy() {} }));
+    setOnDeviceFailureStore(memoryStore('OnDeviceTimeoutError: Gemini Nano answer timed out after 90 s').store);
+    expect(await onDeviceStatus()).toBe('failed');
+    expect(onDeviceFailureReason()).toBe('OnDeviceTimeoutError: Gemini Nano answer timed out after 90 s');
+    expect(lm.availability).not.toHaveBeenCalled();
+    expect(lm.create).not.toHaveBeenCalled();
+  });
+
+  it('a timeout is saved, and the next panel (a new page) starts as "failed"', async () => {
+    stubLanguageModel('available', async () => ({ destroy() {} }));
+    const mem = memoryStore();
+    setOnDeviceFailureStore(mem.store);
+    expect(await onDeviceStatus()).toBe('available');
+    markOnDeviceFailed(new OnDeviceTimeoutError('Gemini Nano answer timed out after 90 s'));
+    await vi.waitFor(() => expect(mem.value()).toBe('OnDeviceTimeoutError: Gemini Nano answer timed out after 90 s'));
+
+    // The user closes the side panel and opens it again: module state is gone, the store is not.
+    resetOnDeviceState();
+    setOnDeviceFailureStore(mem.store);
+    expect(await onDeviceStatus()).toBe('failed');
+    expect(onDeviceFailureReason()).toMatch(/timed out after 90 s/);
+  });
+
+  it('without a store the failure lasts for the page load only (web app)', async () => {
+    stubLanguageModel('available', async () => ({ destroy() {} }));
+    markOnDeviceFailed('InvalidStateError: session lost');
+    expect(await onDeviceStatus()).toBe('failed');
+    resetOnDeviceState();
+    expect(await onDeviceStatus()).toBe('available');
+  });
+
+  it('a store that cannot be read or written never breaks the status', async () => {
+    stubLanguageModel('available', async () => ({ destroy() {} }));
+    setOnDeviceFailureStore({
+      load: async () => Promise.reject(new Error('storage unavailable')),
+      save: () => {
+        throw new Error('quota exceeded');
+      },
+    });
+    expect(await onDeviceStatus()).toBe('available');
+    expect(() => markOnDeviceFailed('InvalidStateError: session lost')).not.toThrow();
+    expect(await onDeviceStatus()).toBe('failed');
   });
 });

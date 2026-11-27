@@ -6,12 +6,14 @@ import type { CheckResult } from '@scamshield/core';
 import { ErrorBoundary, IconPage, ScamShieldApp, type IncomingText } from '@scamshield/ui';
 import '@scamshield/ui/styles.css';
 import { badgeFor, badgeTabFor, type BadgeSource } from './badge';
+import { sessionFailureStore } from './nano-failure';
 import { extractVisibleText } from './page-text';
 import { PENDING_KEY, type PendingText } from './pending';
 
 // Extension pages cannot load the remote reCAPTCHA script, so App Check runs on the
 // registered debug token here (see packages/ai/src/firebase.ts).
-const ai = createScamShieldAI(import.meta.env, { isExtension: true, allowDebugToken: true });
+// The panel is a new page each time it opens: a failed Gemini Nano is remembered for the browser session.
+const ai = createScamShieldAI(import.meta.env, { isExtension: true, allowDebugToken: true, failureStore: sessionFailureStore(chrome.storage.session) });
 
 const SCAN_HELP =
   'Chrome lets Scam Shield read a page only after you use it on that page: click the toolbar icon while the page is open, or right-click the page and choose "Scan this page with Scam Shield". Chrome settings pages and the Web Store cannot be read.';

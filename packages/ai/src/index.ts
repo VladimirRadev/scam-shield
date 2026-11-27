@@ -15,7 +15,7 @@ import { readEnv, type EnvResult, type ReadEnvOptions, type ScamShieldEnv } from
 import { runEvalCheck, type EvalRoute } from './eval-check';
 import { initFirebase, type FirebaseServices } from './firebase';
 import { createModels, sdkGenerate, type ScamShieldModels } from './models';
-import { downloadOnDeviceModel, markOnDeviceFailed, onDeviceStatus, type OnDeviceStatus } from './on-device';
+import { downloadOnDeviceModel, markOnDeviceFailed, onDeviceStatus, setOnDeviceFailureStore, type OnDeviceFailureStore, type OnDeviceStatus } from './on-device';
 import { DEFAULT_APP_CONFIG, loadAppConfig, type AppConfig } from './remote-config';
 import { createStatsClient, type StatsClient } from './stats';
 
@@ -46,7 +46,16 @@ export interface ScamShieldAI {
   services: FirebaseServices | null;
 }
 
-export function createScamShieldAI(rawEnv: Record<string, string | boolean | undefined>, opts: ReadEnvOptions): ScamShieldAI {
+export interface ScamShieldAIOptions extends ReadEnvOptions {
+  /**
+   * Keeps a failed Gemini Nano failed beyond this page. The extension side panel is a new page each
+   * time it opens, so it passes chrome.storage.session; the web app passes nothing (page load only).
+   */
+  failureStore?: OnDeviceFailureStore;
+}
+
+export function createScamShieldAI(rawEnv: Record<string, string | boolean | undefined>, opts: ScamShieldAIOptions): ScamShieldAI {
+  if (opts.failureStore) setOnDeviceFailureStore(opts.failureStore);
   const envResult: EnvResult = readEnv(rawEnv, opts);
   let appConfig: AppConfig = DEFAULT_APP_CONFIG;
   let services: FirebaseServices | null = null;
