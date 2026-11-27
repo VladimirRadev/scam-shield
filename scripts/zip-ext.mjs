@@ -13,6 +13,7 @@ import { crc32, deflateRawSync } from 'node:zlib';
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const DIST = join(ROOT, 'apps/extension/dist');
 const OUT = resolve(process.argv[2] ?? join(ROOT, 'scam-shield-extension.zip'));
+const REMOTE_SCRIPT_RE = /recaptcha\/(?:api|enterprise)\.js|apis\.google\.com\/js\/api\.js|googletagmanager\.com\/gtag\/js/;
 
 function files(dir) {
   return readdirSync(dir)
@@ -80,6 +81,12 @@ function main() {
     process.exit(2);
   }
   const entries = files(DIST).map((p) => ({ name: relative(DIST, p).split('\\').join('/'), data: readFileSync(p) }));
+  // MV3: no remote code. The build strips the SDK's remote script URLs (apps/extension/build).
+  const remote = entries.filter((e) => REMOTE_SCRIPT_RE.test(e.data.toString('latin1'))).map((e) => e.name);
+  if (remote.length) {
+    console.error(`zip-ext: remote script URLs left in ${remote.join(', ')}`);
+    process.exit(1);
+  }
   const buf = zip(entries);
   writeFileSync(OUT, buf);
   console.log(`zip-ext: ${entries.length} files, ${(buf.length / 1024).toFixed(0)} KiB -> ${relative(ROOT, OUT)}`);
