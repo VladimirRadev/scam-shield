@@ -141,8 +141,11 @@ export interface CheckResult {
   risk: number;
   verdict: Verdict;
   category: Category;
-  /** Explanations shown to the user (model reasons first, then signals). */
-  reasons: Array<{ quote: string; why: string; source: 'signal' | 'model'; span?: Span }>;
+  /**
+   * Explanations shown to the user: an `engine` note first (e.g. the AI's "safe" was overruled
+   * by local red flags), then the model reasons, then the signals.
+   */
+  reasons: Array<{ quote: string; why: string; source: 'signal' | 'model' | 'engine'; span?: Span }>;
   advice: string;
   signals: Signal[];
   /** Heuristic-only score (sum of signal weights, capped at 100). */

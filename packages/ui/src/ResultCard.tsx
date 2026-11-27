@@ -65,6 +65,7 @@ interface Props {
 }
 
 export function ResultCard({ result, text, canDeepCheck, deepBusy, onDeepCheck, compact = false }: Props) {
+  const engineReasons = result.reasons.filter((r) => r.source === 'engine');
   const modelReasons = result.reasons.filter((r) => r.source === 'model');
   const VerdictIcon = result.verdict === 'safe' ? IconCheck : IconAlert;
   return (
@@ -85,10 +86,18 @@ export function ResultCard({ result, text, canDeepCheck, deepBusy, onDeepCheck, 
 
       <DataPath result={result} />
 
-      {(modelReasons.length > 0 || result.signals.length > 0) && (
+      {(engineReasons.length > 0 || modelReasons.length > 0 || result.signals.length > 0) && (
         <section className="ss-reasons" aria-label="Why">
           <h3>Why</h3>
           <ul>
+            {engineReasons.map((r, i) => (
+              <li key={`e${i}`} className="ss-reason ss-reason-engine">
+                <span className="ss-reason-tag"><IconAlert size={13} /> Rule</span>
+                <span className="ss-reason-body">
+                  <strong>{r.why}</strong>
+                </span>
+              </li>
+            ))}
             {modelReasons.map((r, i) => (
               <li key={`m${i}`} className="ss-reason ss-reason-model">
                 <span className="ss-reason-tag"><IconSpark size={13} /> AI</span>

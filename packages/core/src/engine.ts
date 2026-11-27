@@ -175,20 +175,28 @@ export interface CombineInput {
 const encoder = new TextEncoder();
 export const utf8Bytes = (s: string) => encoder.encode(s).length;
 
+const VERDICT_RANK: Record<Verdict, number> = { safe: 0, suspicious: 1, scam: 2 };
+
 /**
  * Final risk:
  * - no model: the heuristic score;
- * - with a model: max(model, hard-sign floor, average of model and heuristics).
- * So heuristics can only raise the model's number, and hard red flags (seed-phrase
- * requests, gift cards, pasted commands, look-alike domains...) set a floor that a
- * fooled or prompt-injected model cannot talk down.
+ * - with a model: max(model, hard-sign floor, average of model and heuristics);
+ * - red-flag floor: when any high-severity sign fired, or the heuristic total alone reaches the
+ *   suspicious threshold, the final risk is at least the suspicious threshold.
+ * So heuristics can only raise the model's number, and a fooled or prompt-injected model
+ * ("risk 0, safe") can never turn a message with local red flags into "safe". When that happens
+ * the result says so, and the model's advice is not shown.
  */
 export function combine(input: CombineInput): CheckResult {
   const t = input.thresholds ?? DEFAULT_THRESHOLDS;
   const { local, model } = input;
   const h = local.score;
-  const risk = model ? Math.round(Math.max(model.risk, h.hard, (model.risk + h.total) / 2)) : h.total;
+  const mixed = model ? Math.round(Math.max(model.risk, h.hard, (model.risk + h.total) / 2)) : h.total;
+  const redFlags = h.hard > 0 || h.total >= t.suspicious;
+  const risk = redFlags ? Math.max(mixed, t.suspicious) : mixed;
   const verdict = verdictFor(risk, t);
+  // The model called it safe, the local red flags did not: the model was overruled.
+  const overruled = model !== null && model.verdict === 'safe' && verdict !== 'safe';
 
   let category: Category = 'none';
   if (verdict !== 'safe') {
@@ -196,9 +204,21 @@ export function combine(input: CombineInput): CheckResult {
     category = fromModel ?? dominantCategory(h) ?? 'other';
   }
 
-  const modelSeverity: Severity = verdict === 'scam' ? 'high' : verdict === 'suspicious' ? 'medium' : 'low';
+  // An overruled model quoted the text as evidence for "safe": never show that as a warning.
+  const modelSeverity: Severity = overruled ? 'low' : verdict === 'scam' ? 'high' : verdict === 'suspicious' ? 'medium' : 'low';
   const highlights: Highlight[] = [];
   const reasons: CheckResult['reasons'] = [];
+  if (overruled) {
+    const flags = local.signals.filter((s) => s.severity === 'high').concat(local.signals.filter((s) => s.severity !== 'high'));
+    reasons.push({
+      quote: '',
+      why: `The AI's answer was overruled by local red flags: it called this message safe, but ${flags
+        .slice(0, 3)
+        .map((s) => `"${s.label}"`)
+        .join(', ')} ${flags.length === 1 ? 'is a known scam sign' : 'are known scam signs'}. Be careful: the message may be written to fool AI checkers.`,
+      source: 'engine',
+    });
+  }
   for (const r of model?.reasons ?? []) {
     const span = r.quote ? locateQuote(input.text, r.quote, input.modelSawRedacted ? local.redaction : undefined) : null;
     reasons.push({ quote: span ? input.text.slice(span.start, span.end) : r.quote, why: r.why, source: 'model', span: span ?? undefined });
@@ -216,8 +236,12 @@ export function combine(input: CombineInput): CheckResult {
   }
   highlights.sort((a, b) => a.start - b.start || b.end - a.end);
 
-  // Use the model's advice only when the model and the final verdict agree on safe vs. not safe.
-  const modelAgrees = model ? (model.verdict === 'safe') === (verdict === 'safe') : false;
+  // Use the model's advice only when the final verdict is not more severe than the model's own
+  // verdict and both agree on safe vs. not safe. When the floor or the heuristics raised the
+  // verdict above the model's, the built-in advice is shown instead.
+  const modelAgrees = model
+    ? (model.verdict === 'safe') === (verdict === 'safe') && VERDICT_RANK[verdict] <= VERDICT_RANK[model.verdict]
+    : false;
   const advice =
     model?.advice && modelAgrees
       ? model.advice

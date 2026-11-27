@@ -931,6 +931,7 @@ code {
   background: var(--brand-soft);
   border-color: transparent;
 }
+.ss-reason-engine .ss-reason-tag,
 .ss-reason-signal.ss-sev-high .ss-reason-tag {
   color: var(--scam);
   background: var(--scam-soft);
