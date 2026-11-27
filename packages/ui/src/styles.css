@@ -240,7 +240,7 @@ kbd {
 
 .ss-hero {
   text-align: center;
-  padding: 64px 0 8px;
+  padding: 44px 0 8px;
 }
 .ss-hero h1 {
   font-family: var(--font-display);
@@ -274,11 +274,11 @@ kbd {
 .ss-stats {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 176px));
+  grid-template-columns: repeat(3, minmax(0, 196px));
   justify-content: center;
   gap: 12px;
   padding: 0;
-  margin: 36px 0 0;
+  margin: 30px 0 0;
 }
 .ss-stats li {
   display: flex;
@@ -315,9 +315,9 @@ kbd {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 0 8px;
+  gap: 0;
   min-height: 1.5em;
-  margin: 18px 0 0;
+  margin: 16px 0 0;
   font-size: 0.82rem;
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
@@ -325,12 +325,14 @@ kbd {
 .ss-community-dot {
   width: 7px;
   height: 7px;
+  margin-right: 8px;
   border-radius: 50%;
   background: var(--device);
   box-shadow: 0 0 0 3px var(--device-soft), 0 0 12px var(--device);
   animation: ss-pulse 2.4s ease-in-out infinite;
 }
 .ss-community-note {
+  margin-left: 0.3em;
   color: var(--muted);
 }
 
@@ -338,7 +340,7 @@ kbd {
 
 .ss-stage {
   max-width: 760px;
-  margin: 32px auto 0;
+  margin: 28px auto 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
