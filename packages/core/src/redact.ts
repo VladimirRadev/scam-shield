@@ -197,47 +197,94 @@ function cryptos(text: string): Candidate[] {
   return out;
 }
 
-const SEED_GAP_RE = /^[\s,;]*(?:\(?\d{1,2}[.):-]?[\s,;]*)?$/;
+/** What may stand between two words of a phrase: spaces, newlines, , ; / | - and a list number ("2." "3)"). */
+const SEED_GAP_RE = /^[\s,;/|·•-]*(?:\(?\d{1,2}[.):-]?[\s,;/|·•-]*)?$/;
 const SEED_LEAD_RE = /(?:^|[\s,;])(\(?\d{1,2}[.):-]?\s*)$/;
+/** Recovery phrases have 12, 15, 18, 21 or 24 words. */
+const PHRASE_LENGTHS = new Set([12, 15, 18, 21, 24]);
+const MIN_SEED_WORDS = 11;
 
-/** Find runs of 12-24 BIP39 words (wallet recovery phrases), optionally numbered. */
+/** True when `w` is one typo (insert, delete, replace or swap) away from a BIP39 word. */
+function nearBip39(w: string): boolean {
+  if (w.length < 3 || w.length > 9) return false;
+  for (const b of BIP39_WORDS) {
+    if (Math.abs(b.length - w.length) > 1) continue;
+    if (oneEditApart(w, b)) return true;
+  }
+  return false;
+}
+
+function oneEditApart(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length === b.length) {
+    const diff: number[] = [];
+    for (let i = 0; i < a.length && diff.length <= 2; i++) if (a[i] !== b[i]) diff.push(i);
+    if (diff.length === 1) return true;
+    const [i, j] = diff as [number, number];
+    return diff.length === 2 && j === i + 1 && a[i] === b[j] && a[j] === b[i];
+  }
+  const [s, l] = a.length < b.length ? [a, b] : [b, a];
+  let i = 0;
+  while (i < s.length && s[i] === l[i]) i++;
+  return s.slice(i) === l.slice(i + 1);
+}
+
+/**
+ * Find wallet recovery ("seed") phrases: at least 11 BIP39 words in a row, with one unknown or
+ * misspelt word allowed, separated by spaces, newlines, commas, slashes or dashes, optionally
+ * numbered ("1. word 2. word" or one per line).
+ *
+ * - a run of >= 11 known words is a phrase;
+ * - two runs joined by one unknown word are one phrase when the total is a real phrase length
+ *   (12, 15, 18, 21 or 24), so a neighbouring word is not glued onto a complete phrase;
+ * - a run one word short of a real length takes in a misspelt neighbour ("acident").
+ */
 export function findSeedPhrases(text: string): Span[] {
   const words = [...text.matchAll(/[A-Za-z]+/g)].map((m) => ({
     w: m[0].toLowerCase(),
     start: m.index,
     end: m.index + m[0].length,
   }));
-  const spans: Span[] = [];
-  let runStart = -1;
-  const flush = (lastIdx: number) => {
-    if (runStart < 0) return;
-    const count = lastIdx - runStart + 1;
-    if (count >= 12) {
-      let start = words[runStart]!.start;
-      const lead = SEED_LEAD_RE.exec(text.slice(Math.max(0, start - 6), start));
-      if (lead?.[1]) start -= lead[1].length;
-      spans.push({ start, end: words[lastIdx]!.end });
-    }
-    runStart = -1;
-  };
+  const linked = (i: number) => i > 0 && SEED_GAP_RE.test(text.slice(words[i - 1]!.end, words[i]!.start));
+
+  // Runs of consecutive known words: [first, last] word indices.
+  const runs: Array<[number, number]> = [];
   for (let i = 0; i < words.length; i++) {
-    const cur = words[i]!;
-    const inList = BIP39_WORDS.has(cur.w);
-    if (!inList) {
-      flush(i - 1);
-      continue;
-    }
-    if (runStart < 0) {
-      runStart = i;
-      continue;
-    }
-    const prev = words[i - 1]!;
-    if (!SEED_GAP_RE.test(text.slice(prev.end, cur.start))) {
-      flush(i - 1);
-      runStart = i;
-    }
+    if (!BIP39_WORDS.has(words[i]!.w)) continue;
+    const last = runs[runs.length - 1];
+    if (last && last[1] === i - 1 && linked(i)) last[1] = i;
+    else runs.push([i, i]);
   }
-  flush(words.length - 1);
+  const size = (r: [number, number]) => r[1] - r[0] + 1;
+
+  const found: Array<[number, number]> = [];
+  for (let k = 0; k < runs.length; k++) {
+    const r = runs[k]!;
+    const next = runs[k + 1];
+    // Two runs around exactly one unknown word.
+    if (next && next[0] === r[1] + 2 && linked(r[1] + 1) && linked(next[0]) && PHRASE_LENGTHS.has(size(r) + 1 + size(next))) {
+      found.push([r[0], next[1]]);
+      continue;
+    }
+    if (size(r) < MIN_SEED_WORDS) continue;
+    let [a, b] = r;
+    if (PHRASE_LENGTHS.has(size(r) + 1)) {
+      if (b + 1 < words.length && linked(b + 1) && nearBip39(words[b + 1]!.w)) b++;
+      else if (a > 0 && linked(a) && nearBip39(words[a - 1]!.w)) a--;
+    }
+    found.push([a, b]);
+  }
+
+  const spans: Span[] = [];
+  for (const [a, b] of found) {
+    let start = words[a]!.start;
+    const lead = SEED_LEAD_RE.exec(text.slice(Math.max(0, start - 6), start));
+    if (lead?.[1]) start -= lead[1].length;
+    const span = { start, end: words[b]!.end };
+    const prev = spans[spans.length - 1];
+    if (prev && span.start <= prev.end) prev.end = Math.max(prev.end, span.end);
+    else spans.push(span);
+  }
   return spans;
 }
 

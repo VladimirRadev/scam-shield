@@ -137,3 +137,47 @@ describe('redact(): card numbers', () => {
     expect(redact('card 4111-1111-1111-1112').text).toBe('card 4111-1111-1111-1112');
   });
 });
+
+describe('redact(): recovery phrases', () => {
+  const W = 'abandon ability able about above absent absorb abstract absurd abuse access accident'.split(' ');
+
+  it.each([
+    ['11 words (one missing)', W.slice(0, 11).join(' ')],
+    ['one misspelt word at the end', [...W.slice(0, 11), 'acident'].join(' ')],
+    ['one misspelt word at the start', ['abandn', ...W.slice(1)].join(' ')],
+    ['one unknown word in the middle', [...W.slice(0, 4), 'abuve', ...W.slice(5)].join(' ')],
+    ['dash separators', W.join(' - ')],
+    ['slash separators', W.join('/')],
+    ['comma separators', W.join(', ')],
+    ['one word per line', W.join('\n')],
+    ['a numbered list on one line', W.map((w, i) => `${i + 1}. ${w}`).join(' ')],
+    ['a numbered list, one per line', W.map((w, i) => `${i + 1}) ${w}`).join('\n')],
+    ['upper case', W.join(' ').toUpperCase()],
+  ])('masks a phrase with %s', (_name, seed) => {
+    expect(redact(`Here: ${seed}`).text).toBe('Here: [SEED_PHRASE]');
+  });
+
+  it('masks a 24-word phrase with one misspelt word as one phrase', () => {
+    const w24 = [...W, ...'zoo zone zero zebra youth young you yellow year yard wrong write'.split(' ')];
+    w24[15] = 'yuong';
+    expect(redact(w24.join(' ')).text).toBe('[SEED_PHRASE]');
+  });
+
+  it('does not glue a neighbouring word onto a complete phrase', () => {
+    expect(redact(`My phrase is ${W.join(' ')} and I need help`).text).toBe('My phrase is [SEED_PHRASE] and I need help');
+    expect(redact(`Seed: ${W.join(' ')}`).text).toBe('Seed: [SEED_PHRASE]');
+  });
+
+  it('needs at least 11 recovery-phrase words and allows only one unknown word', () => {
+    const ten = W.slice(0, 10).join(' ');
+    expect(redact(ten).text).toBe(ten);
+    const twoUnknown = [...W.slice(0, 4), 'the', ...W.slice(4, 8), 'and', ...W.slice(8)].join(' ');
+    expect(redact(twoUnknown).text).toBe(twoUnknown);
+  });
+
+  it('leaves ordinary English with many common words alone', () => {
+    const t =
+      'I hope you are able to come to the event about the new office. Bring your laptop and a pen, we will start early, have lunch at noon and finish by four. All of us can help you find the room.';
+    expect(redact(t).text).toBe(t);
+  });
+});
