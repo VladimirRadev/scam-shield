@@ -6,6 +6,8 @@
  * - device : InferenceMode.ONLY_ON_DEVICE twin of `quick` (identical on-device params). The RAW
  *            text is sent only through this model, so the SDK can never fall back to the cloud
  *            with raw text; it throws instead and the engine retries `quick` with redacted text.
+ * - cloud  : InferenceMode.ONLY_IN_CLOUD, quick-check fallback with redacted text when Gemini Nano
+ *            reports "available" but cannot run (PREFER_ON_DEVICE would pick the broken device).
  * - deep   : InferenceMode.ONLY_IN_CLOUD, used after explicit consent with redacted text.
  *
  * The answer's `response.inferenceSource` ("on_device" | "in_cloud") tells which backend ran.
@@ -26,6 +28,7 @@ import { ON_DEVICE_CREATE_OPTIONS } from './on-device';
 export interface ScamShieldModels {
   quick: GenerativeModel;
   device: GenerativeModel;
+  cloud: GenerativeModel;
   deep: GenerativeModel;
 }
 
@@ -55,6 +58,10 @@ export function createModels(ai: AI, cloudModel: string): ScamShieldModels {
   return {
     quick: getGenerativeModel(ai, hybridParams(InferenceMode.PREFER_ON_DEVICE, cloudModel)),
     device: getGenerativeModel(ai, hybridParams(InferenceMode.ONLY_ON_DEVICE, cloudModel)),
+    cloud: getGenerativeModel(ai, {
+      mode: InferenceMode.ONLY_IN_CLOUD,
+      inCloudParams: { model: cloudModel, generationConfig: cloudGenerationConfig(ThinkingLevel.LOW) },
+    }),
     deep: getGenerativeModel(ai, {
       mode: InferenceMode.ONLY_IN_CLOUD,
       inCloudParams: { model: cloudModel, generationConfig: cloudGenerationConfig(ThinkingLevel.MEDIUM) },
@@ -64,7 +71,7 @@ export function createModels(ai: AI, cloudModel: string): ScamShieldModels {
 
 /** The engine's `Generate` function, backed by the Firebase AI Logic SDK. */
 export function sdkGenerate(models: ScamShieldModels): Generate {
-  const pick: Record<Route, GenerativeModel> = { device: models.device, hybrid: models.quick, cloud: models.deep };
+  const pick: Record<Route, GenerativeModel> = { device: models.device, hybrid: models.quick, cloud: models.cloud, deep: models.deep };
   return async (prompt, route) => {
     const result = await pick[route].generateContent(prompt);
     const source = result.response.inferenceSource === InferenceSource.ON_DEVICE ? 'on-device' : 'cloud';

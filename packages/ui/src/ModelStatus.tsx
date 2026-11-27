@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { OnDeviceStatus, ScamShieldAI } from '@scamshield/ai';
+import { onDeviceFailureReason, type OnDeviceStatus, type ScamShieldAI } from '@scamshield/ai';
 import { IconChip, IconCloud, IconDownload } from './icons';
 
 export interface ModelState {
@@ -64,6 +64,10 @@ const COPY: Record<ModelState['status'], { title: string; body: string }> = {
   downloading: { title: 'Installing Gemini Nano…', body: 'You can keep checking meanwhile: until it is ready, only redacted text goes to the cloud.' },
   unavailable: { title: 'Gemini Nano is not available here', body: 'This device cannot run the on-device model. Checks use the cloud model with redacted text only.' },
   unsupported: { title: 'No on-device AI in this browser', body: 'Use desktop Chrome for on-device checks. Until then, only redacted text goes to the cloud.' },
+  failed: {
+    title: 'Gemini Nano cannot start on this device',
+    body: 'Chrome has the model, but could not open a session (for example without a usable GPU). Until you reload, checks use the cloud model with redacted text only.',
+  },
 };
 
 export function ModelStatusPanel({ state, compact = false }: { state: ModelState; compact?: boolean }) {
@@ -86,6 +90,7 @@ export function ModelStatusPanel({ state, compact = false }: { state: ModelState
             <span style={{ width: pct === null ? '35%' : `${Math.max(3, pct)}%` }} className={pct === null ? 'is-indeterminate' : ''} />
           </div>
         )}
+        {status === 'failed' && !compact && onDeviceFailureReason() && <p className="ss-model-reason">{onDeviceFailureReason()}</p>}
         {error && <p className="ss-model-error">{error}</p>}
       </div>
       {status === 'downloadable' && (

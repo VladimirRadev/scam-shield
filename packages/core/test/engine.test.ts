@@ -137,17 +137,51 @@ describe('runQuickCheck() privacy routing', () => {
     expect(r.bytesSent).toBe(0);
   });
 
-  it('falls back to redacted text if the on-device call fails', async () => {
+  it('when "available" Nano cannot open a session: reports the failure and sends only redacted text to the cloud', async () => {
+    const sessionError = Object.assign(new Error('The device is unable to create a session to run the model'), {
+      name: 'InvalidStateError',
+    });
     const generate = vi
       .fn()
-      .mockRejectedValueOnce(new Error('device busy'))
+      .mockRejectedValueOnce(sessionError)
       .mockResolvedValueOnce({ text: SCAM_VERDICT, source: 'cloud' });
-    const r = await runQuickCheck(PHISH, { onDeviceAvailable: true, generate, now });
+    const onDeviceFailure = vi.fn();
+    const r = await runQuickCheck(PHISH, { onDeviceAvailable: true, generate, now, onDeviceFailure });
     expect(generate).toHaveBeenCalledTimes(2);
+    const first = generate.mock.calls[0] as unknown as [string, string];
     const second = generate.mock.calls[1] as unknown as [string, string];
-    expect(second[1]).toBe('hybrid');
+    expect(first[1]).toBe('device');
+    // Not 'hybrid': the PREFER_ON_DEVICE model would pick the broken device again.
+    expect(second[1]).toBe('cloud');
     expect(second[0]).not.toContain('anna.k@gmail.com');
+    expect(second[0]).not.toContain('555 0132');
+    expect(second[0]).toContain('[EMAIL@gmail.com]');
+    expect(onDeviceFailure).toHaveBeenCalledWith(sessionError);
     expect(r.backend).toBe('cloud-redacted');
+    expect(r.sentText).toBe(second[0]);
+    expect(r.note).toMatch(/unable to create a session/);
+  });
+
+  it('skips the device and the hybrid model once on-device is known to fail this session', async () => {
+    const generate = vi.fn(async () => ({ text: SCAM_VERDICT, source: 'cloud' as const }));
+    const r = await runQuickCheck(PHISH, { onDeviceAvailable: false, onDeviceFailed: true, generate, now });
+    expect(generate).toHaveBeenCalledTimes(1);
+    const [prompt, route] = generate.mock.calls[0] as unknown as [string, string];
+    expect(route).toBe('cloud');
+    expect(prompt).not.toContain('anna.k@gmail.com');
+    expect(r.backend).toBe('cloud-redacted');
+  });
+
+  it('never sends raw text on the fallback, whatever the device error', async () => {
+    const generate = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('responseConstraint not supported'))
+      .mockResolvedValueOnce({ text: SAFE_VERDICT, source: 'cloud' });
+    await runQuickCheck(PHISH, { onDeviceAvailable: true, generate, now });
+    const calls = generate.mock.calls as unknown as Array<[string, string]>;
+    const raw = calls.filter(([p]) => p.includes('anna.k@gmail.com'));
+    expect(raw).toHaveLength(1);
+    expect(raw[0]![1]).toBe('device');
   });
 
   it('does not fall back to the cloud when cloud fallback is disabled', async () => {
@@ -187,7 +221,7 @@ describe('runDeepCheck()', () => {
     const generate = vi.fn(async () => ({ text: SCAM_VERDICT, source: 'cloud' as const }));
     const r = await runDeepCheck(PHISH, { generate, now });
     const [prompt, route] = generate.mock.calls[0] as unknown as [string, string];
-    expect(route).toBe('cloud');
+    expect(route).toBe('deep');
     expect(prompt).toContain(local.redaction.text);
     expect(prompt).not.toContain('anna.k@gmail.com');
     expect(r.kind).toBe('deep');

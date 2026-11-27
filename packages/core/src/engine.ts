@@ -251,9 +251,11 @@ export function combine(input: CombineInput): CheckResult {
  * How the AI layer must run a prompt:
  * - `device`: RAW text. Must run on the device only (the AI layer pins ONLY_ON_DEVICE).
  * - `hybrid`: REDACTED text. The PREFER_ON_DEVICE hybrid model decides device or cloud.
- * - `cloud`:  REDACTED text, deep check after explicit consent.
+ * - `cloud`:  REDACTED text, cloud only. Quick-check fallback when the device model is
+ *             "available" but fails (e.g. no usable GPU), so PREFER_ON_DEVICE would fail too.
+ * - `deep`:   REDACTED text, cloud only, deep check after explicit consent.
  */
-export type Route = 'device' | 'hybrid' | 'cloud';
+export type Route = 'device' | 'hybrid' | 'cloud' | 'deep';
 
 export interface GenerateResult {
   text: string;
@@ -271,6 +273,13 @@ export interface QuickCheckDeps {
   thresholds?: Thresholds;
   /** Remote-config switch: when false, a failed on-device call does not go to the cloud. */
   allowCloudFallback?: boolean;
+  /**
+   * The on-device model already failed in this session (e.g. availability() said "available"
+   * but no session could be created). Skip it and send redacted text straight to the cloud.
+   */
+  onDeviceFailed?: boolean;
+  /** Called when the on-device call fails, so the AI layer can mark the device failed. */
+  onDeviceFailure?: (error: unknown) => void;
 }
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -287,8 +296,9 @@ export async function runQuickCheck(text: string, deps: QuickCheckDeps): Promise
   }
 
   let note: string | null = null;
+  let deviceFailed = deps.onDeviceFailed === true;
 
-  if (deps.onDeviceAvailable) {
+  if (deps.onDeviceAvailable && !deviceFailed) {
     const built = buildPrompt(text, { redacted: false, thresholds });
     try {
       const res = await deps.generate(built.prompt, 'device');
@@ -298,16 +308,21 @@ export async function runQuickCheck(text: string, deps: QuickCheckDeps): Promise
       }
       return combine({ ...base, model: parsed.value, backend: 'on-device', latencyMs: now() - t0, sentText: null, truncated: built.truncated });
     } catch (e) {
-      note = `On-device model failed (${errMsg(e)}).`;
-      if (deps.allowCloudFallback === false) {
-        return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: null, note });
-      }
+      deviceFailed = true;
+      deps.onDeviceFailure?.(e);
+      note = `On-device model failed (${errMsg(e)}); used the cloud model with redacted text.`;
     }
   }
 
+  if (deviceFailed && deps.allowCloudFallback === false) {
+    return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: null, note: note ?? 'On-device model is not working on this device.' });
+  }
+
+  // From here on only REDACTED text is used.
   const built = buildPrompt(local.redaction.text, { redacted: true, thresholds });
+  const route: Route = deviceFailed ? 'cloud' : 'hybrid';
   try {
-    const res = await deps.generate(built.prompt, 'hybrid');
+    const res = await deps.generate(built.prompt, route);
     const parsed = parseModelVerdict(res.text, thresholds);
     const onDevice = res.source === 'on-device';
     const sentText = onDevice ? null : built.prompt;
@@ -361,7 +376,7 @@ export async function runDeepCheck(text: string, deps: DeepCheckDeps, prepared?:
   const prep = prepared ?? prepareDeepCheck(text, thresholds);
   const base = { text, local: prep.local, thresholds, kind: 'deep' as const, truncated: prep.truncated };
   try {
-    const res = await deps.generate(prep.prompt, 'cloud');
+    const res = await deps.generate(prep.prompt, 'deep');
     const parsed = parseModelVerdict(res.text, thresholds);
     if (!parsed.ok) {
       return combine({ ...base, model: null, backend: 'heuristics-only', latencyMs: now() - t0, sentText: prep.prompt, note: `Cloud answer ignored (${parsed.error}).` });

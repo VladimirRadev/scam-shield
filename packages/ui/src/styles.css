@@ -562,7 +562,8 @@ code {
   --tone-soft: var(--brand-soft);
 }
 .ss-model-unavailable,
-.ss-model-unsupported {
+.ss-model-unsupported,
+.ss-model-failed {
   --tone: var(--cloud);
   --tone-soft: var(--cloud-soft);
 }
@@ -614,6 +615,13 @@ code {
   margin: 3px 0 0;
   font-size: 0.86rem;
   color: var(--muted);
+}
+.ss-model-reason {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 .ss-model-error {
   margin: 6px 0 0;

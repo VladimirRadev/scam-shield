@@ -24,18 +24,21 @@ describe('sdkGenerate()', () => {
     const models: ScamShieldModels = {
       quick: fakeModel('{"a":1}', InferenceSource.IN_CLOUD),
       device: fakeModel('{"b":2}', InferenceSource.ON_DEVICE),
+      cloud: fakeModel('{"d":4}', InferenceSource.IN_CLOUD),
       deep: fakeModel('{"c":3}', InferenceSource.IN_CLOUD),
     };
     const gen = sdkGenerate(models);
     expect(await gen('p', 'hybrid')).toEqual({ text: '{"a":1}', source: 'cloud' });
     expect(await gen('p', 'device')).toEqual({ text: '{"b":2}', source: 'on-device' });
-    expect(await gen('p', 'cloud')).toEqual({ text: '{"c":3}', source: 'cloud' });
+    expect(await gen('p', 'cloud')).toEqual({ text: '{"d":4}', source: 'cloud' });
+    expect(await gen('p', 'deep')).toEqual({ text: '{"c":3}', source: 'cloud' });
   });
 
   it('refuses a raw-text answer that did not come from the device', async () => {
     const models: ScamShieldModels = {
       quick: fakeModel('', InferenceSource.IN_CLOUD),
       device: fakeModel('{}', InferenceSource.IN_CLOUD),
+      cloud: fakeModel('', InferenceSource.IN_CLOUD),
       deep: fakeModel('', InferenceSource.IN_CLOUD),
     };
     await expect(sdkGenerate(models)('raw', 'device')).rejects.toThrow(/privacy guard/);

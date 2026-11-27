@@ -13,7 +13,7 @@ import {
 import { readEnv, type EnvResult, type ReadEnvOptions, type ScamShieldEnv } from './env';
 import { initFirebase, type FirebaseServices } from './firebase';
 import { createModels, sdkGenerate, type ScamShieldModels } from './models';
-import { downloadOnDeviceModel, onDeviceStatus, type OnDeviceStatus } from './on-device';
+import { downloadOnDeviceModel, markOnDeviceFailed, onDeviceStatus, type OnDeviceStatus } from './on-device';
 import { DEFAULT_APP_CONFIG, loadAppConfig, type AppConfig } from './remote-config';
 
 export * from './env';
@@ -89,6 +89,9 @@ export function createScamShieldAI(rawEnv: Record<string, string | boolean | und
       const status = await onDeviceStatus();
       return runQuickCheck(text, {
         onDeviceAvailable: Boolean(m) && status === 'available',
+        // "available" but no session could be created (e.g. no usable GPU): cloud, redacted only.
+        onDeviceFailed: status === 'failed',
+        onDeviceFailure: markOnDeviceFailed,
         generate: m ? sdkGenerate(m) : heuristicsOnly(missingNote),
         thresholds: appConfig.thresholds ?? DEFAULT_THRESHOLDS,
       });
