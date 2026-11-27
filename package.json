@@ -1,0 +1,39 @@
+{
+  "name": "scam-shield",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scam Shield: private, on-device scam checks with Firebase AI Logic hybrid inference (Gemini Nano + cloud fallback).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "packages/ai",
+    "packages/ui",
+    "apps/web",
+    "apps/extension"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @scamshield/web",
+    "build": "npm run typecheck && npm run build -w @scamshield/web",
+    "build:ext": "npm run build -w @scamshield/extension",
+    "zip:ext": "npm run build:ext && node scripts/zip-ext.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval": "npm run eval -w @scamshield/core",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.3.8",
+    "@types/node": "26.6.11",
+    "@types/react": "19.3.3",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.4.0",
+    "vitest": "5.1.2"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

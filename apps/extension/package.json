@@ -1,0 +1,17 @@
+{
+  "name": "@scamshield/extension",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@scamshield/ai": "0.1.0",
+    "@scamshield/core": "0.1.0",
+    "@scamshield/ui": "0.1.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

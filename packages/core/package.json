@@ -1,0 +1,15 @@
+{
+  "name": "@scamshield/core",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Pure TypeScript scam-detection core: redaction, heuristic signals, prompt/schema/parser and the scoring engine.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./examples.json": "./src/examples.json"
+  },
+  "scripts": {
+    "eval": "tsx scripts/eval-heuristics.ts"
+  }
+}

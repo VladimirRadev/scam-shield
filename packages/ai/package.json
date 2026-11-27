@@ -1,0 +1,15 @@
+{
+  "name": "@scamshield/ai",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Browser-only Firebase layer: App Check, Auth, Remote Config and Firebase AI Logic hybrid inference.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@scamshield/core": "0.1.0",
+    "firebase": "13.4.0"
+  }
+}
