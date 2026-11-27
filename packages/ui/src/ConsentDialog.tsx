@@ -30,10 +30,15 @@ function RedactedPreview({ prepared }: { prepared: PreparedDeepCheck }) {
 /** Explicit consent before anything is sent to the cloud. Shows exactly what would be sent. */
 export function ConsentDialog({ prepared, onCancel, onSend }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
+  const keepRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (prepared && !d.open) d.showModal();
+    if (prepared && !d.open) {
+      d.showModal();
+      // The safe choice gets the focus (showModal alone would focus the scrollable preview).
+      keepRef.current?.focus();
+    }
     if (!prepared && d.open) d.close();
   }, [prepared]);
 
@@ -59,7 +64,7 @@ export function ConsentDialog({ prepared, onCancel, onSend }: Props) {
             <pre>{prepared.prompt}</pre>
           </details>
           <footer className="ss-dialog-actions">
-            <button type="button" className="ss-btn ss-btn-ghost" onClick={onCancel} autoFocus>
+            <button type="button" className="ss-btn ss-btn-ghost" onClick={onCancel} ref={keepRef}>
               Keep it on my device
             </button>
             <button type="submit" className="ss-btn ss-btn-primary">
