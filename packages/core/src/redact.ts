@@ -70,26 +70,54 @@ function emails(text: string): Candidate[] {
   }));
 }
 
+/** Formats with a country code, a trunk 0 or brackets: 8-15 digits. */
 const PHONE_RES = [
   /(?<![\w+])\+\d{1,3}[\s.-]?(?:\(\d{1,4}\)[\s.-]?)?\d{1,4}(?:[\s.-]?\d{2,4}){1,4}\b/g,
   /(?<!\w)\(\d{2,4}\)\s?\d{3,4}[\s.-]?\d{3,4}\b/g,
   /\b0\d{2,4}[\s.-]?\d{3,4}[\s.-]?\d{3,4}\b/g,
   /\b\d{3}[\s.-]\d{3}[\s.-]\d{4}\b/g,
 ];
+/**
+ * Plain digit runs that are 10-15 digits long, with or without spaces, dots or dashes between
+ * groups ("5551234567", "44 7700 900123"). A run that continues as part of a longer number, or
+ * that follows a shipment / order / invoice word, is not a phone number.
+ */
+const PLAIN_PHONE_RES = [/(?<![\w+./-])\d{10,15}(?![\w/-])/g, /(?<![\w+./-])\d{2,4}(?:[ .-]\d{2,6}){1,5}(?![\w/]|[.-]\d)/g];
+const NOT_PHONE_CONTEXT_RE =
+  /\b(?:shipment|tracking|parcel|package|order|invoice|ref|reference|ticket|case|booking|confirmation|build|version)\b(?:\s*(?:no\.?|number|nr\.?|id|#))?[\s:#.]*$/i;
 
 function phones(text: string): Candidate[] {
   const out: Candidate[] = [];
-  for (const re of PHONE_RES) {
+  const add = (m: RegExpMatchArray, min: number) => {
+    const digits = m[0].replace(/\D/g, '').length;
+    if (digits < min || digits > 15) return;
+    out.push({ kind: 'phone', start: m.index!, end: m.index! + m[0].length, replacement: '[PHONE]' });
+  };
+  for (const re of PHONE_RES) for (const m of text.matchAll(re)) add(m, 8);
+  for (const re of PLAIN_PHONE_RES) {
     for (const m of text.matchAll(re)) {
-      const digits = m[0].replace(/\D/g, '').length;
-      if (digits < 8 || digits > 15) continue;
-      out.push({ kind: 'phone', start: m.index, end: m.index + m[0].length, replacement: '[PHONE]' });
+      if (NOT_PHONE_CONTEXT_RE.test(text.slice(Math.max(0, m.index - 30), m.index))) continue;
+      add(m, 10);
     }
   }
   return out;
 }
 
+/** Upper-case IBANs: accepted on shape alone (also fake ones in scam messages are masked). */
 const IBAN_RE = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/g;
+/** IBANs in any letter case ("de89 3704 ..."): accepted only with a valid ISO 13616 checksum. */
+const IBAN_ANYCASE_RE = /\b[A-Za-z]{2}\d{2}(?: ?[A-Za-z0-9]){11,30}\b/g;
+
+/** ISO 13616 mod-97 check of a compact IBAN. */
+function ibanChecksumOk(iban: string): boolean {
+  const s = (iban.slice(4) + iban.slice(0, 4)).toUpperCase();
+  let rem = 0;
+  for (const ch of s) {
+    const v = ch >= 'A' && ch <= 'Z' ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const d of v) rem = (rem * 10 + (d.charCodeAt(0) - 48)) % 97;
+  }
+  return rem === 1;
+}
 
 function ibans(text: string): Candidate[] {
   const out: Candidate[] = [];
@@ -97,6 +125,17 @@ function ibans(text: string): Candidate[] {
     const digits = m[0].replace(/\D/g, '').length;
     if (digits < 10) continue;
     out.push({ kind: 'iban', start: m.index, end: m.index + m[0].length, replacement: '[IBAN]' });
+  }
+  for (const m of text.matchAll(IBAN_ANYCASE_RE)) {
+    // The pattern may run on into the next word ("... 00 please"): take the longest valid prefix.
+    const pos = [...m[0]].flatMap((ch, i) => (ch === ' ' ? [] : [i]));
+    const compact = pos.map((i) => m[0][i]).join('');
+    for (let n = Math.min(34, compact.length); n >= 15; n--) {
+      if (ibanChecksumOk(compact.slice(0, n))) {
+        out.push({ kind: 'iban', start: m.index, end: m.index + pos[n - 1]! + 1, replacement: '[IBAN]' });
+        break;
+      }
+    }
   }
   return out;
 }

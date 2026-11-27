@@ -212,3 +212,40 @@ describe('redact(): private keys', () => {
     expect(redact(`tx 0x${HEX} confirmed`).text).toBe('tx [CRYPTO_ADDRESS] confirmed');
   });
 });
+
+describe('redact(): phone numbers and IBANs', () => {
+  it.each([
+    ['Call me on 5551234567 tonight', 'Call me on [PHONE] tonight'],
+    ['WhatsApp: 44 7700 900123', 'WhatsApp: [PHONE]'],
+    ['text 359 879 324 734 please', 'text [PHONE] please'],
+    ['Call +359 879 324 734.', 'Call [PHONE].'],
+    ['my number +359888123456 ok', 'my number [PHONE] ok'],
+    ['ring 0044 20 7946 0958', 'ring [PHONE]'],
+  ])('masks a 10-15 digit phone number: %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it.each([
+    'Invoice INV-2026-00417, total EUR 18,420.00, due 2026-12-15 at 14:00.',
+    'Your DHL shipment 4829 1137 26 is out for delivery.',
+    'Order 112-7654321-1234567 has shipped.',
+    'Version 10.2.3 and build 20261127 are live.',
+  ])('does not mask order numbers, amounts, dates or versions: %s', (t) => {
+    expect(redact(t).text).toBe(t);
+  });
+
+  it.each([
+    ['iban de89 3704 0044 0532 0130 00 please', 'iban [IBAN] please'],
+    ['IBAN de89370400440532013000.', 'IBAN [IBAN].'],
+    ['Pay to Gb33 bukb 2020 1555 5555 55 today', 'Pay to [IBAN] today'],
+    ['IBAN DE89 3704 0044 0532 0130 00 please', 'IBAN [IBAN] please'],
+  ])('detects IBANs in any letter case before phone numbers: %s', (input, expected) => {
+    const r = redact(input);
+    expect(r.text).toBe(expected);
+    expect(r.counts.phone).toBeUndefined();
+  });
+
+  it('does not take a lower-case word with digits for an IBAN unless the checksum is valid', () => {
+    expect(redact('ab12 3456 7890 1234 5678 90').counts.iban).toBeUndefined();
+  });
+});
