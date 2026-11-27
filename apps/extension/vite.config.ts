@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { stripRemoteScripts } from './build/strip-remote-scripts';
+import { stripRemoteScripts } from './build/strip-remote-scripts.ts';
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 

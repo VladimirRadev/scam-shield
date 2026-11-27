@@ -3,7 +3,8 @@
   "compilerOptions": {
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["chrome", "vite/client"]
+    "types": ["chrome", "vite/client"],
+    "allowImportingTsExtensions": true
   },
   "include": ["src", "test", "build", "vite.config.ts"]
 }
