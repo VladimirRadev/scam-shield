@@ -51,6 +51,7 @@ export type RedactionKind =
   | 'phone'
   | 'iban'
   | 'card'
+  | 'cvv'
   | 'crypto'
   | 'seed'
   | 'street'

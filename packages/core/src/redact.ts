@@ -25,15 +25,16 @@ const PRIORITY: Record<RedactionKind, number> = {
   crypto: 2,
   iban: 3,
   card: 4,
-  email: 5,
-  phone: 6,
-  street: 7,
-  name: 8,
+  cvv: 5,
+  email: 6,
+  phone: 7,
+  street: 8,
+  name: 9,
 };
 
 /** Placeholders this module produces; never redact inside them (makes redact idempotent). */
 const PLACEHOLDER_RE =
-  /\[(?:EMAIL@[^\]\s]*|PHONE|IBAN|CARD|CRYPTO_ADDRESS|SEED_PHRASE|STREET_ADDRESS|NAME|URL:[^\]\s]*)\]/g;
+  /\[(?:EMAIL@[^\]\s]*|PHONE|IBAN|CARD|CVV|CRYPTO_ADDRESS|SEED_PHRASE|STREET_ADDRESS|NAME|URL:[^\]\s]*)\]/g;
 
 // ------------------------------------------------------------------ detectors
 
@@ -114,14 +115,61 @@ function luhn(digits: string): boolean {
   return sum % 10 === 0;
 }
 
-const CARD_RE = /\b(?:\d[ -]?){12,18}\d\b/g;
+/** A run of at least 13 digits with single spaces or dashes between them. */
+const DIGIT_RUN_RE = /\b\d(?:[ -]?\d){12,40}\b/g;
+
+/**
+ * The card number inside one digit run, or null. A card is followed by other digits often
+ * ("4111 1111 1111 1111 12/26", "... 1111 123"), so the run is not judged as a whole:
+ * 13-19-digit pieces that start and end on a digit-group boundary are tried first (longest
+ * wins), then the longest Luhn-valid prefix of each group start.
+ */
+function cardIn(run: string): Span | null {
+  const groups = [...run.matchAll(/\d+/g)].map((g) => ({ start: g.index, end: g.index + g[0].length, digits: g[0] }));
+  let best: Span | null = null;
+  let bestLen = 0;
+  for (let a = 0; a < groups.length; a++) {
+    let digits = '';
+    for (let b = a; b < groups.length; b++) {
+      digits += groups[b]!.digits;
+      if (digits.length > 19) break;
+      if (digits.length >= 13 && digits.length > bestLen && luhn(digits)) {
+        best = { start: groups[a]!.start, end: groups[b]!.end };
+        bestLen = digits.length;
+      }
+    }
+  }
+  if (best) return best;
+  for (let a = 0; a < groups.length; a++) {
+    const positions: number[] = [];
+    for (let b = a; b < groups.length && positions.length < 19; b++) {
+      for (let i = groups[b]!.start; i < groups[b]!.end && positions.length < 19; i++) positions.push(i);
+    }
+    for (let n = positions.length; n >= 13; n--) {
+      const digits = positions.slice(0, n).map((i) => run[i]).join('');
+      if (luhn(digits)) return { start: positions[0]!, end: positions[n - 1]! + 1 };
+    }
+  }
+  return null;
+}
 
 function cards(text: string): Candidate[] {
   const out: Candidate[] = [];
-  for (const m of text.matchAll(CARD_RE)) {
-    const digits = m[0].replace(/\D/g, '');
-    if (digits.length < 13 || digits.length > 19 || !luhn(digits)) continue;
-    out.push({ kind: 'card', start: m.index, end: m.index + m[0].length, replacement: '[CARD]' });
+  for (const m of text.matchAll(DIGIT_RUN_RE)) {
+    const span = cardIn(m[0]);
+    if (span) out.push({ kind: 'card', start: m.index + span.start, end: m.index + span.end, replacement: '[CARD]' });
+  }
+  return out;
+}
+
+/** The 3-4 digit security code after "CVV", "CVC", "CID" or "security code". */
+const CVV_RE = /\b(?:CVV2?|CVC2?|CVN|CID|CSC|security code)\b[^\d\n]{0,12}?(\d{3,4})\b/dgi;
+
+function cvvs(text: string): Candidate[] {
+  const out: Candidate[] = [];
+  for (const m of text.matchAll(CVV_RE)) {
+    const idx = m.indices?.[1];
+    if (idx) out.push({ kind: 'cvv', start: idx[0], end: idx[1], replacement: '[CVV]' });
   }
   return out;
 }
@@ -273,7 +321,7 @@ function names(text: string): Candidate[] {
 
 // ------------------------------------------------------------------ main
 
-const DETECTORS = [urls, seeds, cryptos, ibans, cards, emails, phones, streets, names];
+const DETECTORS = [urls, seeds, cryptos, ibans, cards, cvvs, emails, phones, streets, names];
 
 /**
  * Replace personal data with placeholders. Pure, synchronous and deterministic.
@@ -340,6 +388,7 @@ export const REDACTION_LABELS: Record<RedactionKind, string> = {
   phone: 'phone',
   iban: 'IBAN',
   card: 'card number',
+  cvv: 'card security code',
   crypto: 'crypto address',
   seed: 'recovery phrase',
   street: 'street address',

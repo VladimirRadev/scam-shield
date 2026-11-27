@@ -112,3 +112,28 @@ describe('redact()', () => {
     expect(redact(once).text).toBe(once);
   });
 });
+
+describe('redact(): card numbers', () => {
+  it.each([
+    ['Card: 4111 1111 1111 1111 12/26 CVV 123', 'Card: [CARD] 12/26 CVV [CVV]'],
+    ['Card 4111 1111 1111 1111 123', 'Card [CARD] 123'],
+    ['card number 4111111111111111, exp 12/26', 'card number [CARD], exp 12/26'],
+    ['Pay with 5500-0000-0000-0004 99 today', 'Pay with [CARD] 99 today'],
+    ['Ref 12 4111 1111 1111 1111 thanks', 'Ref 12 [CARD] thanks'],
+  ])('masks the longest Luhn-valid card number inside a longer digit run: %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it.each([
+    ['CVV: 123', 'CVV: [CVV]'],
+    ['cvc 9876 please', 'cvc [CVV] please'],
+    ['the CVV2 is 456', 'the CVV2 is [CVV]'],
+    ['security code (CVC) 321', 'security code (CVC) [CVV]'],
+  ])('masks the security code after CVV / CVC: %s', (input, expected) => {
+    expect(redact(input).text).toBe(expected);
+  });
+
+  it('keeps a Luhn-invalid digit run that is not a card', () => {
+    expect(redact('card 4111-1111-1111-1112').text).toBe('card 4111-1111-1111-1112');
+  });
+});
