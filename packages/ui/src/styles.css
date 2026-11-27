@@ -1125,6 +1125,15 @@ code {
   font-size: 0.9rem;
 }
 
+.ss-notice {
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--cloud-soft);
+  border: 1px solid color-mix(in srgb, var(--cloud) 35%, transparent);
+  font-size: 0.85rem;
+}
+
 .ss-foot {
   display: flex;
   flex-wrap: wrap;

@@ -25,6 +25,8 @@ export interface ScamShieldAppProps {
   autoCheckIncoming?: boolean;
   /** Extra buttons next to the input (extension: "Scan this page"). */
   actions?: ReactNode;
+  /** A message shown above the input, e.g. why a page could not be read. */
+  notice?: ReactNode;
   onResult?: (r: CheckResult) => void;
 }
 
@@ -76,7 +78,7 @@ function EmptyState() {
   );
 }
 
-export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckIncoming = false, actions, onResult }: ScamShieldAppProps) {
+export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckIncoming = false, actions, notice, onResult }: ScamShieldAppProps) {
   const [theme, toggleTheme] = useTheme();
   const model = useModelState(ai);
   const [text, setText] = useState('');
@@ -250,6 +252,7 @@ export function ScamShieldApp({ ai, variant = 'web', incoming = null, autoCheckI
       </header>
 
       {!ai.configured && <SetupNotice missing={ai.missingConfig} />}
+      {notice && <div className="ss-notice" role="status">{notice}</div>}
 
       {panel ? (
         <main className="ss-panel-main">
