@@ -13,7 +13,7 @@ import {
 // The extension build aliases 'firebase/auth' to 'firebase/auth/web-extension' (no remote scripts).
 import { getAuth, onAuthStateChanged, signInAnonymously, type Auth, type User } from 'firebase/auth';
 import { getAI, GoogleAIBackend, type AI } from 'firebase/ai';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import type { Firestore } from 'firebase/firestore';
 import { getRemoteConfig, type RemoteConfig } from 'firebase/remote-config';
 import type { ScamShieldEnv } from './env';
 import { REMOTE_CONFIG_DEFAULTS } from './remote-config';
@@ -24,7 +24,8 @@ export interface FirebaseServices {
   auth: Auth;
   ai: AI;
   remoteConfig: RemoteConfig;
-  firestore: Firestore;
+  /** Firestore is loaded on first use (anonymous stats arrive in run 2). */
+  firestore: () => Promise<Firestore>;
   /** Resolves with the anonymous user, or null if sign-in failed (the app keeps working). */
   user: Promise<User | null>;
 }
@@ -80,7 +81,8 @@ export function initFirebase(env: ScamShieldEnv): FirebaseServices {
   remoteConfig.settings.fetchTimeoutMillis = 5000;
 
   const ai = getAI(app, { backend: new GoogleAIBackend() });
-  const firestore = getFirestore(app);
+  let db: Promise<Firestore> | null = null;
+  const firestore = () => (db ??= import('firebase/firestore').then((m) => m.getFirestore(app)));
 
   services = { app, appCheck, auth, ai, remoteConfig, firestore, user };
   return services;
