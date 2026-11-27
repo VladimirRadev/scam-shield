@@ -9,7 +9,7 @@ export const REMOTE_CONFIG_DEFAULTS = {
   risk_threshold_suspicious: 40,
   /** Corroboration rule: model risk needed to flag a message with no local red flag. */
   model_only_min_risk: 85,
-  prompt_version: 'v1',
+  prompt_version: 'v2',
   cloud_model: 'gemini-3.5-flash-lite',
   deep_check_enabled: true,
 } as const;

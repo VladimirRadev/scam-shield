@@ -10,7 +10,7 @@ describe('Remote Config defaults', () => {
       risk_threshold_scam: 70,
       risk_threshold_suspicious: 40,
       model_only_min_risk: 85,
-      prompt_version: 'v1',
+      prompt_version: 'v2',
       cloud_model: 'gemini-3.5-flash-lite',
       deep_check_enabled: true,
     });
@@ -24,7 +24,7 @@ describe('Remote Config defaults', () => {
     expect(c.thresholds.suspicious).toBeLessThan(c.thresholds.scam);
     expect(c.thresholds.modelOnlyMinRisk).toBe(85);
     expect(c.cloudModel).toBe('gemini-3.5-flash-lite');
-    expect(c.promptVersion).toBe('v1');
+    expect(c.promptVersion).toBe('v2');
     expect(c.deepCheckEnabled).toBe(false);
   });
 

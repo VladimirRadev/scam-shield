@@ -12,6 +12,24 @@ describe('buildPrompt()', () => {
     expect(p.version).toBe(PROMPT_VERSION);
   });
 
+  it('v2 calibrates the model: transactional notices are safe without a concrete harmful ask', () => {
+    expect(PROMPT_VERSION).toBe('v2');
+    for (const redacted of [false, true]) {
+      const instructions = buildPrompt('Your code is 482913.', { redacted }).prompt.split('<<<MESSAGE')[0]!;
+      expect(instructions).toMatch(/Most messages are legitimate/);
+      expect(instructions).toMatch(/one-time codes the reader requested/);
+      expect(instructions).toMatch(/shipping updates/);
+      expect(instructions).toMatch(/invoices and bills/);
+      expect(instructions).toMatch(/appointment reminders/);
+      expect(instructions).toMatch(/pay a stranger/);
+      expect(instructions).toMatch(/install or run something/);
+      expect(instructions).toMatch(/concrete harmful ask/);
+      expect(instructions).toMatch(/keep the risk below 40/);
+    }
+    // Nano's context is small: the instructions stay short.
+    expect(buildPrompt('x', { redacted: false }).prompt.length).toBeLessThan(2200);
+  });
+
   it('tells the model when placeholders replaced personal data', () => {
     const p = buildPrompt('Mail [EMAIL@gmail.com]', { redacted: true });
     expect(p.prompt).toMatch(/placeholder/i);

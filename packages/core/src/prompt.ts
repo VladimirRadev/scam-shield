@@ -6,7 +6,7 @@
  */
 import { CATEGORIES, type Category, type ModelReason, type ModelVerdict, type Thresholds, type Verdict } from './types';
 
-export const PROMPT_VERSION = 'v1';
+export const PROMPT_VERSION = 'v2';
 
 /** Message characters sent to the model; keeps the on-device prompt well inside 9216 tokens. */
 export const MAX_INPUT_CHARS = 6000;
@@ -72,7 +72,10 @@ export function buildPrompt(message: string, opts: BuildPromptOptions): BuiltPro
   }
   lines.push(
     'Scam families: fake recruiters and job offers; "clone and run this repo" or take-home tasks that install malware; crypto wallet drainers and seed-phrase requests; advance-fee and prize fraud; fake invoices and changed bank details; delivery, bank and account phishing; tech-support scams; investment and romance ("pig butchering") scams; requests to move the chat to Telegram, WhatsApp or Signal; look-alike domains.',
-    'Many messages are legitimate: real recruiters, invoices, bank notices, delivery updates, code-review requests. Do not call a message a scam only because it mentions money, a link, a job or code.',
+    // v2: calibration. CPU Gemini Nano flagged 13 of 20 legitimate examples with v1 (E2E run 45965556713).
+    "Most messages are legitimate, real recruiters included. Transactional notices are normally safe: one-time codes the reader requested, shipping updates, invoices and bills, appointment reminders, a colleague's request.",
+    'They become risky only when they ask the reader to pay a stranger or new bank details, to share a password, code or recovery phrase, to install or run something, or to move the chat to another app.',
+    `A scam needs a concrete harmful ask; without one, keep the risk below ${t.suspicious}. Do not call a message a scam only because it mentions money, a link, a job or code.`,
   );
   if (opts.deep) {
     lines.push(
