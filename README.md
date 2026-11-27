@@ -100,7 +100,7 @@ npm ci
 cp .env.example .env.local     # fill in the Firebase web config (and optionally an App Check debug token)
 npm run dev                    # web app on http://localhost:5173 (eval page: /eval.html)
 npm test                       # unit tests (Vitest)
-npm run test:rules             # Firestore rules tests on the emulator (needs Java 21+)
+npm run test:rules             # Firestore rules tests on the emulator (needs the Firebase CLI and Java 21+)
 npm run eval                   # heuristic evaluation table
 npm run build                  # typecheck + production web build + debug-token guard
 npm run build:ext              # extension into apps/extension/dist
