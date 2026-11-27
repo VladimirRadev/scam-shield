@@ -1152,6 +1152,18 @@ kbd {
   color: var(--warn);
   background: var(--warn-soft);
 }
+/* Corroboration rule: an AI concern no local red flag confirmed. Neutral, not an alarm. */
+.ss-reason-engine.is-unconfirmed .ss-reason-tag,
+.ss-reason-model.is-hint .ss-reason-tag {
+  color: var(--lavender);
+  background: var(--fill);
+}
+.ss-reason-model.is-hint .ss-reason-body {
+  color: var(--muted);
+}
+.ss-reason-model.is-hint q {
+  color: var(--ink-3);
+}
 
 .ss-original {
   white-space: pre-wrap;

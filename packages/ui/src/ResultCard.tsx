@@ -47,6 +47,9 @@ interface Props {
 export function ResultCard({ result, text, canDeepCheck, deepBusy, onDeepCheck, compact = false }: Props) {
   const engineReasons = result.reasons.filter((r) => r.source === 'engine');
   const modelReasons = result.reasons.filter((r) => r.source === 'model');
+  // Corroboration rule: the AI's concern was capped because no local red flag confirmed it.
+  const capped = result.modelCapped !== null;
+  const aiHintsOnly = result.modelCapped === 'safe';
   const VerdictIcon = result.verdict === 'safe' ? IconCheck : IconAlert;
   return (
     <article className={`ss-result ss-tone-${result.verdict}${compact ? ' is-compact' : ''}`} aria-label="Check result">
@@ -71,16 +74,16 @@ export function ResultCard({ result, text, canDeepCheck, deepBusy, onDeepCheck, 
           <h3>Why</h3>
           <ul>
             {engineReasons.map((r, i) => (
-              <li key={`e${i}`} className="ss-reason ss-reason-engine">
-                <span className="ss-reason-tag"><IconAlert size={13} /> Rule</span>
+              <li key={`e${i}`} className={`ss-reason ss-reason-engine${capped ? ' is-unconfirmed' : ''}`}>
+                <span className="ss-reason-tag">{capped ? <IconCheck size={13} /> : <IconAlert size={13} />} Rule</span>
                 <span className="ss-reason-body">
                   <strong>{r.why}</strong>
                 </span>
               </li>
             ))}
             {modelReasons.map((r, i) => (
-              <li key={`m${i}`} className="ss-reason ss-reason-model">
-                <span className="ss-reason-tag"><IconSpark size={13} /> AI</span>
+              <li key={`m${i}`} className={`ss-reason ss-reason-model${aiHintsOnly ? ' is-hint' : ''}`}>
+                <span className="ss-reason-tag"><IconSpark size={13} /> {aiHintsOnly ? 'AI noted' : 'AI'}</span>
                 <span className="ss-reason-body">
                   {r.quote && <q>{r.quote}</q>} {r.why}
                 </span>
