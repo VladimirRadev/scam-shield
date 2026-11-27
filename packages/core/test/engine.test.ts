@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { analyzeLocal, combine, runQuickCheck, runDeepCheck, locateQuote, DEFAULT_THRESHOLDS, toSegments, verdictFor } from '../src/engine';
+import { analyzeLocal, combine, runQuickCheck, runDeepCheck, locateQuote, DEFAULT_THRESHOLDS, MODEL_ONLY_MIN_RISK, toSegments, verdictFor } from '../src/engine';
 import { EXAMPLES } from '../src/examples';
 import { prepareDeepCheck } from '../src/engine';
 import { statsRouteFor } from '../src/stats';
@@ -29,7 +29,140 @@ const now = () => (clock += 250);
 
 describe('default thresholds', () => {
   it('match the Remote Config defaults', () => {
-    expect(DEFAULT_THRESHOLDS).toEqual({ scam: 70, suspicious: 40 });
+    expect(MODEL_ONLY_MIN_RISK).toBe(85);
+    expect(DEFAULT_THRESHOLDS).toEqual({ scam: 70, suspicious: 40, modelOnlyMinRisk: 85 });
+  });
+});
+
+describe('corroboration rule: the model alone, with no local red flag', () => {
+  const OTP = EXAMPLES.find((e) => e.id === 'legit-otp')!.text;
+  const INVOICE = EXAMPLES.find((e) => e.id === 'legit-invoice')!.text;
+  const quiet = (t: string) => {
+    const local = analyzeLocal(t);
+    // Silent local layer: no high-severity sign and a total under the suspicious threshold.
+    expect(local.score.hard).toBe(0);
+    expect(local.score.total).toBeLessThan(DEFAULT_THRESHOLDS.suspicious);
+    return local;
+  };
+  const verdictOf = (risk: number, quote = 'verification code'): ModelVerdict => ({
+    risk,
+    verdict: verdictFor(risk),
+    category: 'phishing',
+    reasons: [{ quote, why: 'Codes can be stolen.' }],
+    advice: 'Model advice.',
+  });
+
+  it('below the model-only minimum, keeps the verdict safe and the AI notes as weak hints', () => {
+    const r = combine({ text: OTP, local: quiet(OTP), model: verdictOf(65), backend: 'on-device', latencyMs: 1, sentText: null });
+    expect(r.risk).toBe(DEFAULT_THRESHOLDS.suspicious - 1);
+    expect(r.verdict).toBe('safe');
+    expect(r.category).toBe('none');
+    expect(r.modelRisk).toBe(65);
+    expect(r.modelCapped).toBe('safe');
+    expect(r.reasons[0]).toMatchObject({ source: 'engine' });
+    expect(r.reasons[0]!.why).toMatch(/^Gemini Nano raised a concern, but no local red flag confirmed it/);
+    // The model's own reasons stay visible, as low-severity highlights.
+    expect(r.reasons.filter((x) => x.source === 'model')).toHaveLength(1);
+    const modelMarks = r.highlights.filter((h) => h.source === 'model');
+    expect(modelMarks.length).toBeGreaterThan(0);
+    expect(modelMarks.every((h) => h.severity === 'low')).toBe(true);
+    // The model warned, the verdict is safe: show the built-in safe advice, not the model's.
+    expect(r.advice).not.toBe('Model advice.');
+    expect(r.reasons.some((x) => /overruled/.test(x.why))).toBe(false);
+  });
+
+  it('at or above the minimum, allows at most "suspicious", never "scam"', () => {
+    const r = combine({ text: OTP, local: quiet(OTP), model: verdictOf(92), backend: 'on-device', latencyMs: 1, sentText: null });
+    expect(r.risk).toBe(DEFAULT_THRESHOLDS.scam - 1);
+    expect(r.verdict).toBe('suspicious');
+    expect(r.category).toBe('phishing');
+    expect(r.modelCapped).toBe('suspicious');
+    expect(r.reasons[0]!.source).toBe('engine');
+    expect(r.reasons[0]!.why).toMatch(/no local red flag confirmed it/);
+    expect(r.reasons[0]!.why).toMatch(/suspicious, not scam/);
+    expect(r.advice).not.toBe('Model advice.');
+  });
+
+  it('exactly at the minimum counts as confident', () => {
+    const r = combine({ text: OTP, local: quiet(OTP), model: verdictOf(MODEL_ONLY_MIN_RISK), backend: 'on-device', latencyMs: 1, sentText: null });
+    expect(r.verdict).toBe('suspicious');
+    expect(r.risk).toBe(DEFAULT_THRESHOLDS.scam - 1);
+  });
+
+  it('changes nothing when the model already says safe', () => {
+    const r = combine({ text: INVOICE, local: quiet(INVOICE), model: verdictOf(20, 'invoice'), backend: 'on-device', latencyMs: 1, sentText: null });
+    expect(r.risk).toBe(20);
+    expect(r.verdict).toBe('safe');
+    expect(r.modelCapped).toBeNull();
+    expect(r.reasons.some((x) => x.source === 'engine')).toBe(false);
+  });
+
+  it('applies to the cloud route too, and names the cloud model', () => {
+    const r = combine({ text: INVOICE, local: quiet(INVOICE), model: verdictOf(60, 'invoice'), backend: 'cloud-redacted', latencyMs: 1, sentText: 'x', modelSawRedacted: true });
+    expect(r.verdict).toBe('safe');
+    expect(r.modelCapped).toBe('safe');
+    expect(r.reasons[0]!.why).toMatch(/^The cloud AI raised a concern, but no local red flag confirmed it/);
+  });
+
+  it('applies to the deep check', async () => {
+    const answer = JSON.stringify({ risk: 75, verdict: 'scam', category: 'fake-invoice', reasons: [], advice: 'Do not pay.' });
+    const r = await runDeepCheck(INVOICE, { generate: async () => ({ text: answer, source: 'cloud' as const }), now });
+    expect(r.kind).toBe('deep');
+    expect(r.verdict).toBe('safe');
+    expect(r.modelCapped).toBe('safe');
+  });
+
+  it('does not apply when one high-severity sign fired, even under the suspicious total', () => {
+    const t = 'Log in at https://paypa1.com today.';
+    const local = analyzeLocal(t);
+    expect(local.score.hard).toBeGreaterThan(0);
+    expect(local.score.total).toBeLessThan(DEFAULT_THRESHOLDS.suspicious);
+    const r = combine({ text: t, local, model: verdictOf(80, 'paypa1.com'), backend: 'on-device', latencyMs: 1, sentText: null });
+    expect(r.risk).toBe(80);
+    expect(r.verdict).toBe('scam');
+    expect(r.modelCapped).toBeNull();
+  });
+
+  it('takes the minimum from the thresholds (Remote Config model_only_min_risk)', () => {
+    const local = quiet(OTP);
+    const thresholds = { scam: 70, suspicious: 40, modelOnlyMinRisk: 60 };
+    const mid = combine({ text: OTP, local, model: verdictOf(65), backend: 'on-device', latencyMs: 1, sentText: null, thresholds });
+    expect(mid.risk).toBe(65);
+    expect(mid.verdict).toBe('suspicious');
+    expect(mid.modelCapped).toBeNull();
+    const high = combine({ text: OTP, local, model: verdictOf(95), backend: 'on-device', latencyMs: 1, sentText: null, thresholds });
+    expect(high.risk).toBe(69);
+    expect(high.modelCapped).toBe('suspicious');
+    // Thresholds without the key fall back to MODEL_ONLY_MIN_RISK.
+    const fallback = combine({ text: OTP, local, model: verdictOf(80), backend: 'on-device', latencyMs: 1, sentText: null, thresholds: { scam: 70, suspicious: 40 } });
+    expect(fallback.verdict).toBe('safe');
+  });
+
+  it('a self-contradicting "safe, risk 90" answer is capped without a false overrule note', () => {
+    const model: ModelVerdict = { risk: 90, verdict: 'safe', category: 'none', reasons: [], advice: 'Fine.' };
+    const r = combine({ text: OTP, local: quiet(OTP), model, backend: 'on-device', latencyMs: 1, sentText: null });
+    expect(r.verdict).toBe('suspicious');
+    expect(r.modelCapped).toBe('suspicious');
+    expect(r.reasons.some((x) => /overruled/.test(x.why))).toBe(false);
+  });
+
+  it('a model that calls everything a scam (risk 95) makes no legitimate example a scam and keeps every scam', async () => {
+    const paranoid = JSON.stringify({ risk: 95, verdict: 'scam', category: 'phishing', reasons: [], advice: 'Scam.' });
+    const generate = async () => ({ text: paranoid, source: 'on-device' as const });
+    for (const ex of EXAMPLES) {
+      const r = await runQuickCheck(ex.text, { onDeviceAvailable: true, generate, now });
+      if (ex.label === 'legit') expect(r.verdict, ex.id).not.toBe('scam');
+      else expect(r.verdict, ex.id).toBe('scam');
+    }
+  });
+
+  it('a model that rates everything 80 makes no legitimate example suspicious', async () => {
+    const alarmed = JSON.stringify({ risk: 80, verdict: 'scam', category: 'phishing', reasons: [], advice: 'Scam.' });
+    const generate = async () => ({ text: alarmed, source: 'on-device' as const });
+    for (const ex of EXAMPLES.filter((e) => e.label === 'legit')) {
+      const r = await runQuickCheck(ex.text, { onDeviceAvailable: true, generate, now });
+      expect(r.verdict, ex.id).toBe('safe');
+    }
   });
 });
 
@@ -51,13 +184,16 @@ describe('combine()', () => {
     expect(r.risk).toBeGreaterThan(0);
   });
 
-  it('lets a confident model raise the score above weak heuristics', () => {
-    const t = 'Hi, how are you? Long time no see.';
-    const model: ModelVerdict = { risk: 88, verdict: 'scam', category: 'investment-romance', reasons: [], advice: '' };
-    const r = combine({ text: t, local: analyzeLocal(t), model, backend: 'on-device', latencyMs: 10, sentText: null });
+  it('lets a confident model raise the score when local signs back it up', () => {
+    const t = EXAMPLES.find((e) => e.id === 'scam-recruiter-telegram')!.text;
+    const local = analyzeLocal(t);
+    expect(local.score.total).toBeGreaterThanOrEqual(DEFAULT_THRESHOLDS.suspicious);
+    const model: ModelVerdict = { risk: 88, verdict: 'scam', category: 'off-platform-lure', reasons: [], advice: '' };
+    const r = combine({ text: t, local, model, backend: 'on-device', latencyMs: 10, sentText: null });
     expect(r.risk).toBe(88);
     expect(r.verdict).toBe('scam');
-    expect(r.category).toBe('investment-romance');
+    expect(r.category).toBe('off-platform-lure');
+    expect(r.modelCapped).toBeNull();
   });
 
   it('turns model quotes into highlights on the original text', () => {

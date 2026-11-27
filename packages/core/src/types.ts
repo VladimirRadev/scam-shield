@@ -139,6 +139,11 @@ export interface Thresholds {
   scam: number;
   /** risk >= suspicious -> "suspicious" */
   suspicious: number;
+  /**
+   * Corroboration rule: when no local red flag fired, the model alone needs at least this risk to
+   * make a message "suspicious", and even then it cannot make it "scam". Missing: MODEL_ONLY_MIN_RISK.
+   */
+  modelOnlyMinRisk?: number;
 }
 
 export interface CheckResult {
@@ -148,8 +153,9 @@ export interface CheckResult {
   verdict: Verdict;
   category: Category;
   /**
-   * Explanations shown to the user: an `engine` note first (e.g. the AI's "safe" was overruled
-   * by local red flags), then the model reasons, then the signals.
+   * Explanations shown to the user: an `engine` note first (the AI's "safe" was overruled by
+   * local red flags, or the AI's concern was capped because no local red flag confirmed it),
+   * then the model reasons, then the signals.
    */
   reasons: Array<{ quote: string; why: string; source: 'signal' | 'model' | 'engine'; span?: Span }>;
   advice: string;
@@ -158,6 +164,11 @@ export interface CheckResult {
   heuristicRisk: number;
   /** Risk the model reported, or null when no model answered. */
   modelRisk: number | null;
+  /**
+   * Set when the corroboration rule lowered the model's verdict because no local red flag
+   * confirmed it: the verdict it was capped to. null when the rule changed nothing.
+   */
+  modelCapped: 'safe' | 'suspicious' | null;
   /** Highlights on the ORIGINAL text, sorted, may overlap. */
   highlights: Highlight[];
   backend: Backend;

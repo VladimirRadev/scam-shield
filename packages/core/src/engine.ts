@@ -23,7 +23,13 @@ import type {
   Verdict,
 } from './types';
 
-export const DEFAULT_THRESHOLDS: Thresholds = { scam: 70, suspicious: 40 };
+/**
+ * Corroboration rule: with no local red flag, a model risk below this keeps the message "safe",
+ * and a risk at or above it reaches at most "suspicious". Remote Config key `model_only_min_risk`.
+ */
+export const MODEL_ONLY_MIN_RISK = 85;
+
+export const DEFAULT_THRESHOLDS: Thresholds = { scam: 70, suspicious: 40, modelOnlyMinRisk: MODEL_ONLY_MIN_RISK };
 
 export interface LocalAnalysis {
   text: string;
@@ -186,6 +192,10 @@ const VERDICT_RANK: Record<Verdict, number> = { safe: 0, suspicious: 1, scam: 2 
  * So heuristics can only raise the model's number, and a fooled or prompt-injected model
  * ("risk 0, safe") can never turn a message with local red flags into "safe". When that happens
  * the result says so, and the model's advice is not shown.
+ * - corroboration rule: when NO local red flag fired, the model alone cannot make a message a
+ *   "scam". Below `modelOnlyMinRisk` (default 85) the final risk is capped under the suspicious
+ *   threshold (safe), at or above it under the scam threshold (at most suspicious). Gemini Nano
+ *   on a CPU flagged 13 of 20 legitimate messages without this rule (E2E run 45965556713).
  */
 export function combine(input: CombineInput): CheckResult {
   const t = input.thresholds ?? DEFAULT_THRESHOLDS;
@@ -193,10 +203,20 @@ export function combine(input: CombineInput): CheckResult {
   const h = local.score;
   const mixed = model ? Math.round(Math.max(model.risk, h.hard, (model.risk + h.total) / 2)) : h.total;
   const redFlags = h.hard > 0 || h.total >= t.suspicious;
-  const risk = redFlags ? Math.max(mixed, t.suspicious) : mixed;
+  let risk = redFlags ? Math.max(mixed, t.suspicious) : mixed;
+  let modelCapped: CheckResult['modelCapped'] = null;
+  if (model && !redFlags) {
+    const confident = model.risk >= (t.modelOnlyMinRisk ?? MODEL_ONLY_MIN_RISK);
+    const cap = confident ? t.scam - 1 : t.suspicious - 1;
+    // Lowering the risk below a threshold always lowers the verdict by at least one step.
+    if (risk > cap) {
+      risk = cap;
+      modelCapped = confident ? 'suspicious' : 'safe';
+    }
+  }
   const verdict = verdictFor(risk, t);
   // The model called it safe, the local red flags did not: the model was overruled.
-  const overruled = model !== null && model.verdict === 'safe' && verdict !== 'safe';
+  const overruled = model !== null && model.verdict === 'safe' && verdict !== 'safe' && redFlags;
 
   let category: Category = 'none';
   if (verdict !== 'safe') {
@@ -219,6 +239,17 @@ export function combine(input: CombineInput): CheckResult {
       source: 'engine',
     });
   }
+  if (modelCapped) {
+    const who = input.backend === 'on-device' ? 'Gemini Nano' : 'The cloud AI';
+    reasons.push({
+      quote: '',
+      why:
+        modelCapped === 'safe'
+          ? `${who} raised a concern, but no local red flag confirmed it, so the verdict stays safe. Its notes are below as hints.`
+          : `${who} raised a strong concern, but no local red flag confirmed it, so this is marked suspicious, not scam.`,
+      source: 'engine',
+    });
+  }
   for (const r of model?.reasons ?? []) {
     const span = r.quote ? locateQuote(input.text, r.quote, input.modelSawRedacted ? local.redaction : undefined) : null;
     reasons.push({ quote: span ? input.text.slice(span.start, span.end) : r.quote, why: r.why, source: 'model', span: span ?? undefined });
@@ -238,10 +269,11 @@ export function combine(input: CombineInput): CheckResult {
 
   // Use the model's advice only when the final verdict is not more severe than the model's own
   // verdict and both agree on safe vs. not safe. When the floor or the heuristics raised the
-  // verdict above the model's, the built-in advice is shown instead.
-  const modelAgrees = model
-    ? (model.verdict === 'safe') === (verdict === 'safe') && VERDICT_RANK[verdict] <= VERDICT_RANK[model.verdict]
-    : false;
+  // verdict above the model's, or the corroboration rule lowered it, the built-in advice is shown.
+  const modelAgrees =
+    model && !modelCapped
+      ? (model.verdict === 'safe') === (verdict === 'safe') && VERDICT_RANK[verdict] <= VERDICT_RANK[model.verdict]
+      : false;
   const advice =
     model?.advice && modelAgrees
       ? model.advice
@@ -257,6 +289,7 @@ export function combine(input: CombineInput): CheckResult {
     signals: local.signals,
     heuristicRisk: h.total,
     modelRisk: model ? model.risk : null,
+    modelCapped,
     highlights,
     backend: input.backend,
     latencyMs: Math.max(0, Math.round(input.latencyMs)),
