@@ -1619,13 +1619,52 @@ kbd {
     padding: 18px;
     border-radius: 20px;
   }
+  /* Shield beside the verdict, provenance chip on its own row. */
   .ss-result-head {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 16px;
+    row-gap: 2px;
+    align-items: center;
   }
-  .ss-verdict {
-    font-size: 2.2rem;
+  .ss-result-verdict {
+    display: contents;
+  }
+  .ss-result-head .ss-shield {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    /* overrides the inline width set from the size prop */
+    width: 88px !important;
+  }
+  .ss-result-head .ss-shield svg {
+    width: 88px;
+    height: auto;
+  }
+  .ss-result-head .ss-shield-num {
+    font-size: 1.65em;
+  }
+  .ss-result-head .ss-shield-cap {
+    font-size: 0.56em;
+  }
+  .ss-kicker,
+  .ss-verdict,
+  .ss-category {
+    grid-column: 2;
+  }
+  .ss-category {
+    margin: 0;
+  }
+  .ss-result-head .ss-prov {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-top: 12px;
+  }
+  .ss-verdict,
+  .is-compact .ss-verdict {
+    font-size: 2rem;
+  }
+  .ss-examples-hint {
+    display: none;
   }
   .ss-how {
     margin-top: 56px;
