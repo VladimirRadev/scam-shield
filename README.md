@@ -85,33 +85,43 @@ The heuristics alone flag every scam but call only half of them a clear "scam"; 
 
 **Real models in the browser** ([`apps/web/eval.html`](apps/web/eval.html), open `/eval.html` on the hosted app): every example runs through the real engine on one fixed route, one after another; the page reports precision / recall / F1, median and p90 latency and the average bytes sent off the device.
 
-**Gemini Nano on device, raw text (ONLY_ON_DEVICE)**, 50 examples (Chrome 157, 2026-11-27)
+**Gemini Nano on device, raw text (ONLY_ON_DEVICE)**, 50 examples (Chrome 157, prompt v2, [CI run 45973514997](https://github.com/VladimirRadev/scam-shield/actions/runs/45973514997), 2026-11-27)
 
 | Positive when | TP | FP | FN | TN | Precision | Recall | F1 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| flagged (risk >= 40) | 30 | 13 | 0 | 7 | 69.8% | 100.0% | 82.2% |
-| scam (risk >= 70) | 30 | 2 | 0 | 18 | 93.8% | 100.0% | 96.8% |
+| flagged (risk >= 40) | 30 | 0 | 0 | 20 | 100.0% | 100.0% | 100.0% |
+| scam (risk >= 70) | 27 | 0 | 3 | 20 | 100.0% | 90.0% | 94.7% |
 
-Latency per check: median 31,510 ms, p90 37,191 ms · average sent off the device: 0 bytes · answered by: 50 on-device
+Latency per check: median 28,808 ms, p90 33,044 ms (2-core CPU, no GPU) · average sent off the device: 0 bytes · answered by: 50 on-device · no misclassified examples.
 
-Misclassified (flagged rule): `legit-recruiter`, `legit-invoice`, `legit-bank-signin`, `legit-dhl-update`, `legit-colleague-repo`, `legit-interview-invite`, `legit-takehome`, `legit-otp`, `legit-utility-bill`, `legit-amazon-shipped`, `legit-doctor`, `legit-oss-issue`, `legit-crypto-sent`
+**Cloud, redacted text (ONLY_IN_CLOUD, gemini-3.5-flash-lite)**, 50 examples (Chrome 158, prompt v2, live app, 2026-11-27)
 
-<!-- EVAL:cloud -->
+| Positive when | TP | FP | FN | TN | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| flagged (risk >= 40) | 30 | 0 | 0 | 20 | 100.0% | 100.0% | 100.0% |
+| scam (risk >= 70) | 30 | 0 | 0 | 20 | 100.0% | 100.0% | 100.0% |
+
+Latency per check: median 1,296 ms, p90 1,778 ms · average sent off the device: 2.5 kB (redacted) · answered by: 50 cloud-redacted · no misclassified examples.
+
+**Before calibration** (prompt v1, no corroboration rule, [CI run 45965556713](https://github.com/VladimirRadev/scam-shield/actions/runs/45965556713)), the same on-device route flagged 13 of the 20 legitimate look-alikes (precision 69.8%): the small on-device model leans towards caution. That measurement is why prompt v2 describes normal transactional messages and why the engine now needs a local red flag (or a model risk ≥ 85) before a model-only concern becomes "suspicious". `npm run replay:nano` replays the recorded v1 answers through the current engine (13 → 1 false alarm).
+
+These examples are synthetic and were written alongside the heuristics, so the numbers are optimistic; they show that the pipeline works end to end on real models, not real-world accuracy.
 
 ### On-device evidence
 
-The device route was measured with real Chrome and real Gemini Nano on a GitHub-hosted runner. The workflow [`on-device-e2e.yml`](.github/workflows/on-device-e2e.yml) starts headful Google Chrome on `windows-latest`, and [`scripts/ci/on-device-e2e.mjs`](scripts/ci/on-device-e2e.mjs) drives the hosted app over the Chrome DevTools protocol: it lets Chrome download Gemini Nano, sends one smoke prompt, clicks **Run on device** on `/eval.html` for all 50 examples, and takes screenshots of three checks in the app. Results of [run 45965556713](https://github.com/VladimirRadev/scam-shield/actions/runs/45965556713) (27 Nov 2026), the device table above:
+The device route was measured with real Chrome and real Gemini Nano on a GitHub-hosted runner. The workflow [`on-device-e2e.yml`](.github/workflows/on-device-e2e.yml) starts headful Google Chrome on `windows-latest`, and [`scripts/ci/on-device-e2e.mjs`](scripts/ci/on-device-e2e.mjs) drives the hosted app over the Chrome DevTools protocol: it lets Chrome download Gemini Nano, sends one smoke prompt, clicks **Run on device** on `/eval.html` for all 50 examples, and takes screenshots of three checks in the app. Results of [run 45973514997](https://github.com/VladimirRadev/scam-shield/actions/runs/45973514997) (27 Nov 2026), the device table above:
 
 | | Measured |
 |---|---|
-| Runner | AMD EPYC 7763 (2 cores, 4 threads), 16 GiB RAM, Windows Server 2025, no GPU (Hyper-V video adapter) |
+| Runner | AMD EPYC 9V74 (2 cores, 4 threads), 16 GiB RAM, Windows Server 2025, no GPU |
 | Chrome | 157.0.8103.79 |
 | Model | Gemini Nano `nano_v3_cpu` 2025.8.21.1028 (2,730 MiB), CPU backend: `chrome://on-device-internals` reports performance class "GpuBlocked" and "Device Capable: true" |
-| Download | 90 s, from "downloadable" to a working session |
-| Smoke prompt (Prompt API directly) | first answer 4.7 s, second answer 2.0 s |
-| Scam Shield checks | 50 of 50 answered on the device, 0 bytes sent; median 31.5 s and p90 37.2 s per check; the slowest Gemini Nano answer took 38.7 s |
+| Download | 115 s, from "downloadable" to a working session |
+| Smoke prompt (Prompt API directly) | first answer 2.8 s, second answer 1.8 s |
+| Scam Shield checks | 50 of 50 answered on the device, 0 bytes sent; median 28.8 s and p90 33.0 s per check (a ~2.3 k-character prompt with a JSON response constraint on a 2-core CPU) |
+| App screenshots | recruiter "clone our repo" → Scam · *On-device Gemini Nano · 32 s · 0 bytes sent*; seed-phrase "support" → Scam · 26 s; genuine recruiter → Looks safe · 35 s |
 
-On this CPU-only Gemini Nano every scam is caught, but 13 of the 20 legitimate look-alikes come out at least "suspicious" (2 of them "scam"): on this hardware the on-device model leans towards caution. Each screenshot shows the provenance chip, for example *On-device Gemini Nano · 33 s · 0 bytes sent*; the screenshots, the full `chrome://on-device-internals` dumps and the per-call timings are the run's artifacts.
+The screenshots, the screen recording used in the demo video, the full `chrome://on-device-internals` dumps and the per-call timings are the run's artifacts.
 
 ## Try it
 
