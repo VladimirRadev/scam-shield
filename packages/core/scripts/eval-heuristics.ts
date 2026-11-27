@@ -7,6 +7,7 @@
  */
 import { analyzeLocal, DEFAULT_THRESHOLDS, verdictFor } from '../src/engine';
 import { EXAMPLES } from '../src/examples';
+import { pct, prf, prfTable } from '../src/metrics';
 import type { Verdict } from '../src/types';
 
 const verbose = process.argv.includes('--all');
@@ -33,23 +34,7 @@ const rows: Row[] = EXAMPLES.map((ex) => {
   };
 });
 
-const pct = (x: number) => (Number.isFinite(x) ? `${(x * 100).toFixed(1)}%` : 'n/a');
-
-function metrics(isPositive: (r: Row) => boolean) {
-  let tp = 0, fp = 0, fn = 0, tn = 0;
-  for (const r of rows) {
-    const pred = isPositive(r);
-    const actual = r.label === 'scam';
-    if (pred && actual) tp++;
-    else if (pred && !actual) fp++;
-    else if (!pred && actual) fn++;
-    else tn++;
-  }
-  const precision = tp / (tp + fp);
-  const recall = tp / (tp + fn);
-  const f1 = (2 * precision * recall) / (precision + recall);
-  return { tp, fp, fn, tn, precision, recall, f1 };
-}
+const metrics = (isPositive: (r: Row) => boolean) => prf(rows.map((r) => ({ actual: r.label === 'scam', predicted: isPositive(r) })));
 
 const scams = rows.filter((r) => r.label === 'scam').length;
 const legit = rows.length - scams;
@@ -59,15 +44,7 @@ lines.push(`### Heuristic layer only (no model), ${rows.length} examples: ${scam
 lines.push('');
 lines.push(`Thresholds: suspicious >= ${t.suspicious}, scam >= ${t.scam} (Remote Config defaults).`);
 lines.push('');
-lines.push('| Positive when | TP | FP | FN | TN | Precision | Recall | F1 |');
-lines.push('|---|---:|---:|---:|---:|---:|---:|---:|');
-for (const [name, fn] of [
-  [`flagged (risk >= ${t.suspicious})`, (r: Row) => r.verdict !== 'safe'],
-  [`scam (risk >= ${t.scam})`, (r: Row) => r.verdict === 'scam'],
-] as const) {
-  const m = metrics(fn);
-  lines.push(`| ${name} | ${m.tp} | ${m.fp} | ${m.fn} | ${m.tn} | ${pct(m.precision)} | ${pct(m.recall)} | ${pct(m.f1)} |`);
-}
+lines.push(...prfTable({ thresholds: t, flagged: metrics((r) => r.verdict !== 'safe'), scam: metrics((r) => r.verdict === 'scam') }));
 
 lines.push('');
 lines.push('| Scam category | Examples | Flagged | Recall |');
