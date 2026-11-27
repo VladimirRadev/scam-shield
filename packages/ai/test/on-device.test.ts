@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  ON_DEVICE_FIRST_CALL_TIMEOUT_MS,
+  ON_DEVICE_STARTUP_TIMEOUT_MS,
   downloadOnDeviceModel,
   markOnDeviceFailed,
   onDeviceFailureReason,
@@ -81,7 +81,7 @@ describe('on-device start-up timeout', () => {
     stubLanguageModel('available', () => new Promise(() => {}));
     let status: string | null = null;
     void onDeviceStatus().then((s) => (status = s));
-    await vi.advanceTimersByTimeAsync(ON_DEVICE_FIRST_CALL_TIMEOUT_MS - 1);
+    await vi.advanceTimersByTimeAsync(ON_DEVICE_STARTUP_TIMEOUT_MS - 1);
     expect(status).toBeNull();
     await vi.advanceTimersByTimeAsync(1);
     expect(status).toBe('failed');
@@ -93,7 +93,7 @@ describe('on-device start-up timeout', () => {
     let open: (s: unknown) => void = () => {};
     stubLanguageModel('available', () => new Promise((r) => (open = r)));
     void onDeviceStatus();
-    await vi.advanceTimersByTimeAsync(ON_DEVICE_FIRST_CALL_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(ON_DEVICE_STARTUP_TIMEOUT_MS);
     open({ destroy });
     await vi.advanceTimersByTimeAsync(0);
     expect(destroy).toHaveBeenCalled();

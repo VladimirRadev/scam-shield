@@ -13,8 +13,10 @@
  * model as failed until the page is reloaded.
  *
  * Timeouts: a session that does not open within 60 s (the first start may load the model from
- * disk), or an on-device answer that takes longer than 45 s (60 s for the first call of the page),
+ * disk), or an on-device answer that takes longer than 90 s (120 s for the first call of the page),
  * marks the model as failed for this page load, so checks go to the redacted cloud route.
+ * The answer budgets fit Chrome's CPU backend (no usable GPU): on a 4-vCPU GitHub runner one check
+ * took 24-39 s, and one took more than 45 s.
  */
 import type { LanguageModelCreateOptions } from 'firebase/ai';
 
@@ -35,10 +37,12 @@ export const ON_DEVICE_CREATE_OPTIONS: LanguageModelCreateOptions = {
   expectedOutputs: [{ type: 'text', languages: ['en'] }],
 };
 
-/** Start-up session, and the first on-device answer of a page load (may load the model from disk). */
-export const ON_DEVICE_FIRST_CALL_TIMEOUT_MS = 60_000;
+/** The start-up session (may load the model from disk). */
+export const ON_DEVICE_STARTUP_TIMEOUT_MS = 60_000;
+/** The first on-device answer of a page load. */
+export const ON_DEVICE_FIRST_CALL_TIMEOUT_MS = 120_000;
 /** Every later on-device answer. */
-export const ON_DEVICE_CALL_TIMEOUT_MS = 45_000;
+export const ON_DEVICE_CALL_TIMEOUT_MS = 90_000;
 
 /** Gemini Nano did not answer in time. Nothing left the device. */
 export class OnDeviceTimeoutError extends Error {
@@ -78,7 +82,7 @@ export function withTimeout<T>(p: Promise<T>, ms: number, what: string, onLate?:
   });
 }
 
-/** Time budget of the next on-device answer: 60 s until one answer arrived in this page load, then 45 s. */
+/** Time budget of the next on-device answer: 120 s until one answer arrived in this page load, then 90 s. */
 export function onDeviceCallTimeoutMs(): number {
   return warm ? ON_DEVICE_CALL_TIMEOUT_MS : ON_DEVICE_FIRST_CALL_TIMEOUT_MS;
 }
@@ -114,7 +118,7 @@ function languageModel(): LanguageModelStatic | null {
 
 /** Create and destroy one session to prove the model really runs here. Cached per page session. */
 function probeSession(lm: LanguageModelStatic): Promise<boolean> {
-  probe ??= withTimeout(lm.create({ ...ON_DEVICE_CREATE_OPTIONS }), ON_DEVICE_FIRST_CALL_TIMEOUT_MS, 'Gemini Nano start-up', (late) => late.destroy())
+  probe ??= withTimeout(lm.create({ ...ON_DEVICE_CREATE_OPTIONS }), ON_DEVICE_STARTUP_TIMEOUT_MS, 'Gemini Nano start-up', (late) => late.destroy())
     .then((session) => {
       session.destroy();
       return true;

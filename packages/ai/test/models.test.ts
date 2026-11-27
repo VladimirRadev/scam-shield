@@ -163,7 +163,7 @@ describe('sdkGenerate() on-device timeouts', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it('gives the first on-device call 60 s, then marks the device failed', async () => {
+  it('gives the first on-device call 120 s, then marks the device failed', async () => {
     const device = hanging();
     const models = { quick: device, device, cloud: device, deep: device } as ScamShieldModels;
     let err: unknown = null;
@@ -176,7 +176,7 @@ describe('sdkGenerate() on-device timeouts', () => {
     expect(onDeviceFailureReason()).toMatch(/timed out/);
   });
 
-  it('gives later on-device calls 45 s each', async () => {
+  it('gives later on-device calls 90 s each', async () => {
     const device = answering('{"risk":1}');
     const models = { quick: device, device, cloud: device, deep: device } as ScamShieldModels;
     const gen = sdkGenerate(models, { deviceStatus: async () => 'available' });
@@ -188,6 +188,39 @@ describe('sdkGenerate() on-device timeouts', () => {
     expect(err).toBeNull();
     await vi.advanceTimersByTimeAsync(1);
     expect(err).toBeInstanceOf(OnDeviceTimeoutError);
+  });
+
+  // Measured on a GitHub windows-latest runner (4 vCPU, no GPU, CPU backend): 24-39 s per check,
+  // one check over 45 s. Such answers must arrive, not flip the page to the cloud route.
+  const slowAnswer = (ms: number, text: string) => () =>
+    new Promise((resolve) => setTimeout(() => resolve({ response: { text: () => text, inferenceSource: InferenceSource.ON_DEVICE } }), ms));
+
+  it('waits for a slow first answer from a CPU-only Gemini Nano (70 s)', async () => {
+    const device = answering('{"risk":1}');
+    (device as unknown as { generateContent: ReturnType<typeof vi.fn> }).generateContent.mockImplementation(slowAnswer(70_000, '{"risk":3}'));
+    const models = { quick: device, device, cloud: device, deep: device } as ScamShieldModels;
+    let out: unknown = null;
+    let err: unknown = null;
+    void sdkGenerate(models, { deviceStatus: async () => 'available' })('raw', 'device').then((o) => (out = o), (e: unknown) => (err = e));
+    await vi.advanceTimersByTimeAsync(70_000);
+    expect(err).toBeNull();
+    expect(out).toEqual({ text: '{"risk":3}', source: 'on-device' });
+    expect(onDeviceFailureReason()).toBeNull();
+  });
+
+  it('waits for a slow later answer from a CPU-only Gemini Nano (50 s)', async () => {
+    const device = answering('{"risk":1}');
+    const models = { quick: device, device, cloud: device, deep: device } as ScamShieldModels;
+    const gen = sdkGenerate(models, { deviceStatus: async () => 'available' });
+    await gen('raw', 'device');
+    (device as unknown as { generateContent: ReturnType<typeof vi.fn> }).generateContent.mockImplementation(slowAnswer(50_000, '{"risk":2}'));
+    let out: unknown = null;
+    let err: unknown = null;
+    void gen('raw', 'device').then((o) => (out = o), (e: unknown) => (err = e));
+    await vi.advanceTimersByTimeAsync(50_000);
+    expect(err).toBeNull();
+    expect(out).toEqual({ text: '{"risk":2}', source: 'on-device' });
+    expect(onDeviceFailureReason()).toBeNull();
   });
 
   it('a quick check whose on-device call hangs ends on the redacted cloud route', async () => {
